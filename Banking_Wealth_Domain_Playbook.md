@@ -1,7 +1,7 @@
-# Banking System Design & Real-World Scenarios Playbook
+# Banking & Wealth Domain Playbook
 For: OCBC Full Stack Developer Technical Interview — Wealth/Trading Platforms
 
-This doc has three parts: fundamentals explained from scratch, real-world "what would you actually do" banking scenarios, and a niche deep-dive into the wealth/trading domain and Singapore's regulatory context. Read Part 1 first even if some of it feels familiar — the scenarios in Part 2 lean on it directly. Where a concept is concrete enough to show in code, there's a short snippet — some are Java/SQL, some are just pseudocode, since a few of these (CAP, 2PC vs. Saga) are architectural rather than a specific API.
+Everything banking/wealth-domain-specific lives in this one doc: distributed-systems fundamentals explained from scratch (CAP, ACID/BASE, 2PC/Saga, idempotency, event sourcing/CQRS, circuit breaker, message delivery, Redis, SQL vs. NoSQL — all with the banking lens applied), real-world "what would you actually do" banking scenarios, and a niche deep-dive into wealth/trading vocabulary, OMS/settlement, MAS TRM, and AML/KYC. Read Part 1 first even if some of it feels familiar — the scenarios in Part 2 lean on it directly, and Part 3's wealth-platform design checklist points back to Part 1 throughout rather than repeating it. General (non-banking) versions of scalability/caching/system-design content are in `General_Backend_Engineering_QA.md` — this doc only covers the domain-specific lens on top of that.
 
 ---
 
@@ -124,6 +124,45 @@ void onMessage(PaymentEvent event) {
     processPayment(event);
     idempotencyRepository.save(event.idempotencyKey());
 }
+```
+
+### Redis, for This Domain Specifically
+In-memory key-value store — cache, session store, pub/sub broker, lightweight queue. Core structures: strings, hashes, lists, sets, sorted sets. Volatile unless persistence is configured (RDB/AOF) — never a substitute for a relational DB when strong consistency or complex queries matter, which is exactly why it pairs with, rather than replaces, the SQL default below.
+
+**Wealth-domain angle**: real-time or near-real-time pricing/quote caching is a classic Redis use case in trading platforms — worth mentioning if asked how you'd cache frequently-changing market data. General backend caching patterns (cache-aside, write-through, write-behind, eviction policies) are in `General_Backend_Engineering_QA.md` Part 6 — this is just the domain-specific reason to reach for it here.
+
+```java
+// cache-aside for a quote — short TTL, since prices move fast and staleness has a real cost here
+BigDecimal getQuote(String symbol) {
+    BigDecimal cached = redis.opsForValue().get("quote:" + symbol);
+    if (cached != null) return cached;
+    BigDecimal fresh = marketDataClient.fetchQuote(symbol);
+    redis.opsForValue().set("quote:" + symbol, fresh, Duration.ofSeconds(2));
+    return fresh;
+}
+```
+
+### SQL vs. NoSQL, for This Domain Specifically
+
+| | SQL (relational) | NoSQL |
+|---|---|---|
+| Structure | Fixed schema, tables, rows | Flexible schema |
+| Consistency | Strong, ACID | Often eventual, BASE |
+| Best for | Complex relationships, transactions | High write throughput, flexible/evolving data |
+| Examples | PostgreSQL, MySQL | MongoDB, Cassandra, DynamoDB, Redis |
+
+**For this role specifically**: order books, trade blotters, and position-keeping (who owns what, at what cost basis) are exactly the kind of state that demands ACID guarantees — justify SQL as default for anything touching an order's lifecycle or account/position state. NoSQL fits supporting data: audit logs, market data snapshots, high-volume event streams. This is a good moment to mention your BI-FAST integration at CIMB Niaga — same underlying discipline (financial consistency requirements), different product surface (payments vs. wealth/trading).
+
+```sql
+-- SQL: an order's lifecycle demands ACID — a transfer either fully happens or fully doesn't
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+COMMIT;
+```
+```json
+// NoSQL: a market-data snapshot — schema can vary document to document, no migration to add a field
+{ "symbol": "AAPL", "price": 189.32, "timestamp": "2026-07-22T14:00:00Z", "source": "NYSE" }
 ```
 
 ---
@@ -289,6 +328,21 @@ CREATE TABLE ledger_entries (
 
 ## Part 3: Niche — Banking & Wealth Domain Deep Dive
 
+### Wealth & Trading Vocabulary
+*This is the domain gap flagged from the actual JD. You don't need deep expertise — you need enough to sound like you did your homework and can ask an intelligent question, not enough to bluff a trader.*
+
+| Term | What it means |
+|---|---|
+| **OTC (Over-The-Counter)** | Trades negotiated directly between two parties, not through a centralized exchange. Common for bonds, derivatives, some FX. Contrast with exchange-traded instruments like listed equities. |
+| **Bonds** | Debt instruments: the issuer borrows money from the investor, pays periodic interest (a coupon), and returns the principal at maturity. Platform-side, this means handling coupon schedules, accrued interest, and settlement dates. |
+| **Cash Equities** | Straightforward buying/selling of shares (as opposed to derivatives). Typically settles T+1 or T+2 (see Settlement, below). |
+| **Funds** | Pooled investment vehicles (mutual funds, unit trusts). Priced by **NAV** (Net Asset Value), usually once a day — not continuously traded. Workflow is subscription/redemption, not buy/sell order matching. |
+| **IPO (Initial Public Offering)** | A private company issues shares to the public for the first time. Platform-side: handling subscription periods, allocation logic (often oversubscribed), and conversion from "application" to "holding." |
+| **Loans & Deposits** | Not "trading" instruments, but wealth products offered alongside investments (e.g., structured deposits) — relevant because a wealth platform often needs to show a client's *full* position across trading and banking products. |
+| **Front-to-back integration** | Front office (client-facing dealing/advisory) → middle office (risk, compliance checks) → back office (settlement, accounting). A trade flows through this pipeline; the JD's "front-office and order-management workflows" phrase is pointing at the front-to-middle part of this chain. |
+
+**If asked "what's your experience with capital markets/wealth products"** — be honest, then pivot: *"I haven't worked directly on trading or wealth products, but I have worked on systems with the same underlying demands — BI-FAST integration at CIMB Niaga required the same rigor around consistency and auditability that I'd expect an order management workflow to need. I'd expect the domain vocabulary to be the fastest part to pick up; the harder part — building for correctness under regulatory and financial-consistency constraints — is exactly what I've already done."*
+
 ### Order Management System (OMS), in more depth
 - **Order types**: *market order* (execute immediately at the best available price), *limit order* (execute only at a specified price or better), *stop order* (triggers a market/limit order once a price threshold is crossed).
 - **Order lifecycle / state machine**: New → (Routed) → Partially Filled → Filled, or → Cancelled / Rejected / Expired. Every transition should be an auditable event — same pattern as any status-driven workflow you've built.
@@ -350,3 +404,12 @@ Worth knowing at a conceptual level, since OCBC is a Singapore-headquartered ban
 ### AML/KYC — brief awareness
 - **KYC (Know Your Customer)**: verifying customer identity and risk profile before onboarding or allowing certain transactions.
 - **AML (Anti-Money Laundering)**: ongoing monitoring for suspicious transaction patterns, tied directly to Scenario 4 above — the "unusual transfer" detection isn't just a fraud-prevention feature, it's a legal reporting obligation in most jurisdictions, including Singapore.
+
+### If Asked to Design Part of a Wealth Platform
+Everything above, pointed at a single design prompt — the checklist to run through out loud, each item pointing back to where it's already covered in full:
+- **Consistency over availability** for anything touching money movement, balances, or order state (favor CP over AP — Part 1, CAP Theorem).
+- **Auditability**: every state change traceable — append-only ledgers or event sourcing (Part 1) are common patterns, doubly important where regulators can ask "show me the history of this order."
+- **Idempotency**: critical for payment and order-submission APIs (Part 1 + Part 2, Scenario 2) — retries must not double-process a transaction or double-submit an order. Directly relevant to your BI-FAST integration experience.
+- **Order state machine**: New → Partially Filled → Filled/Cancelled/Rejected, with clear rules about which transitions are valid — the full implementation is above, under OMS.
+- **Security**: encryption at rest/in transit, strict access control, PCI DSS-style compliance awareness if relevant.
+- **Scalability**: read-heavy (price/quote lookups) vs. write-heavy (order submission) paths often need different scaling strategies — read replicas, Redis caching (above) for the former, queue-based load leveling (Kafka) for the latter. General scalability patterns are in `General_Backend_Engineering_QA.md` Part 1 — this is just the domain-specific lens on the same tradeoffs.

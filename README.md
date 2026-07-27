@@ -44,7 +44,7 @@ docker run -p 8080:8080 bank-demo
 | `antipattern/BrokenAccountLookupService.java` | Field injection vs constructor injection — not wired into any controller, exists only to contrast against `AccountService` |
 | `notification/NotificationService.java` + impls | Strategy pattern; SOLID (OCP/DIP/ISP/LSP) walkthrough in the interface Javadoc; Singleton via Spring's default bean scope. Wired into `AccountService` — deposit/withdraw/transfer all fan out to every registered channel |
 | `entity/Account.java` | `@Version` optimistic locking — Javadoc explains the lost-update race it prevents and why transfer locks accounts in ascending-id order |
-| `entity/IdempotencyRecord.java` | Dedup store backing the idempotency mechanism (Banking Playbook Scenario 2) |
+| `entity/IdempotencyRecord.java` | Dedup store backing the idempotency mechanism (`Banking_Wealth_Domain_Playbook.md` Scenario 2) |
 | `entity/Account.java` vs `dto/AccountResponse.java` | Entity/DTO separation |
 | `exception/GlobalExceptionHandler.java` | Centralized error handling via `@RestControllerAdvice`, including `OptimisticLockingFailureException` -> 409 |
 | `dto/CreateAccountRequest.java`, `dto/AmountRequest.java`, `dto/TransferRequest.java` | Bean Validation (`@NotNull`, `@DecimalMin`) |

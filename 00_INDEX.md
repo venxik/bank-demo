@@ -2,47 +2,38 @@
 Role: Full Stack Developer (Java, ReactJS), JR00009212 — OCBC Group Wealth
 Interview: 3 Aug 2026, 3:00pm SGT, Microsoft Teams
 
-You now have 12 documents. This is the front door — what's in each one, and a suggested order to go through them before the 3rd.
+**Restructured 24 Jul 2026.** This project used to be 15 files with real duplication — the same topic (JWT, design patterns, HashMap, the pricing-service story) explained in 2-4 different places, and two files that weren't even in this index. It's now 9 files, each with exactly one job. Every topic lives in exactly one doc — if you're looking for something and it's not where this index says, it doesn't exist yet, it's not hiding in a second file.
 
 ---
 
-## The 12 Documents
+## The 9 Documents
 
-**1. [OCBC_Interview_Consolidated_Prep](OCBC_Interview_Consolidated_Prep.md)**
-Start here. Interview logistics, the Go→Java translation table, your honest Java-experience framing (has fill-in-the-blank spots — do these first, they take the longest to get right), Spring/Spring Boot fundamentals, design patterns, Redis, SQL vs. NoSQL, microservices, Docker/K8s primer, Liquibase primer, wealth/trading domain primer, Java/React refreshers, system design, self-intro, questions to ask, day-of checklist.
+**1. [Master_Question_Checklist](Master_Question_Checklist.md)**
+Read this first. The highest-signal document — actual questions reported by real OCBC candidates, from two independent sources, with a pointer to exactly which other doc has the full answer for each one. Short, and the closest thing to "here's what's actually going to get asked."
 
-**2. [Banking_System_Design_Playbook](Banking_System_Design_Playbook.md)**
-CAP theorem and other distributed-systems fundamentals explained from scratch, then banking-specific real-world scenarios (system down, payment idempotency, correct recipient, fraud detection, reconciliation, race conditions, audit trails), then the niche wealth/trading domain deep-dive and MAS TRM regulatory context.
+**2. [Interview_Countdown_Plan](Interview_Countdown_Plan.md)**
+The schedule. A gap analysis checked against the JD, the exact blanks only you can fill, a calendarized day-by-day plan with two full 60-minute mock-interview runs, a timebox for a real 1-hour interview's minute allocation, a log of what's already been closed with real repo evidence (Swagger, Docker, CI, Redux, Liquibase), and a ranked list of what's most likely to go wrong. Tells you *when* to read everything else and *what's* still missing.
 
-**3. [Real_World_Engineering_Scenarios_QA](Real_World_Engineering_Scenarios_QA.md)**
-The general (non-banking-specific) version of scenario questions: building a scalable system, incident response when something breaks, step-by-step performance-bottleneck debugging, plus quick-fire scenarios (safe rollouts, memory leaks, zero-downtime deploys, cache stampedes).
+**3. [Self_Intro_And_Behavioral](Self_Intro_And_Behavioral.md)**
+Everything about **you** as a candidate, and only that — self-intro, the honest Java-experience framing (has fill-in-the-blank spots, do these first), every real STAR story (git-verified, not templates), motivation/"why" questions, questions to ask them, pitfalls. One canonical version of the pricing-service story, decided in one place — not three.
 
-**4. [Spring_Java_Interview_QA](Spring_Java_Interview_QA.md)**
-Q&A format, ~28 questions across core Java, concurrency, Spring Core, Spring Boot, Spring Data JPA, transactions, REST/MVC, testing, resilience, and security — plus a quick-fire round.
+**4. [Spring_Java_QA](Spring_Java_QA.md)**
+The single Java/Spring reference. Java basics from scratch, core Java, OOP, SOLID, concurrency, design patterns (both how Spring uses each one *and* how to implement it from scratch — unified, not split across two docs), Java 8+, strings/memory, Collections deep dive (including Hashtable vs. HashMap and a full "design a HashMap" implementation), modern Java 17-21, Spring Core/Boot/Data JPA/Transactions/REST/Testing/Resilience/Security, Docker & Kubernetes, Liquibase. Nothing Java- or Spring-related exists in any other doc.
 
-**5. [ReactJS_Interview_QA](ReactJS_Interview_QA.md)**
-Same Q&A format for React: fundamentals, hooks, state management/Redux, performance, component patterns, and a React Native bridge section with two spots asking for your own specific example.
+**5. [ReactJS_QA](ReactJS_QA.md)**
+React: fundamentals, hooks, state management/Redux, performance, component patterns, and a React Native bridge section with a spot for your own specific example.
 
-**6. [Master_Question_Checklist](Master_Question_Checklist.md)**
-The highest-signal document. Part 0 lists actual questions reported by real OCBC candidates across Singapore/HK/KL — several are near-certain to come up. The rest fills gaps: microservices architecture (API Gateway, service discovery), REST fundamentals, SQL basics, open-ended full-stack system design prompts, SDLC, and behavioral questions.
+**6. [Banking_Wealth_Domain_Playbook](Banking_Wealth_Domain_Playbook.md)**
+Everything banking/wealth-domain-specific: distributed-systems fundamentals with the banking lens applied (CAP, ACID/BASE, 2PC/Saga, idempotency, event sourcing, circuit breaker, Redis, SQL vs. NoSQL), 8 real-world banking scenarios, wealth/trading vocabulary, OMS/settlement, MAS TRM, AML/KYC, and a wealth-platform system-design checklist.
 
-**7. [Technical_Fundamentals_Gap_Fill](Technical_Fundamentals_Gap_Fill.md)**
-The Java-and-beyond fundamentals doc, researched against current common Java interview question sources. Security (OWASP Top 10:2025, XSS, CSRF, SQL injection, CORS, JWT, password hashing), core OOP concepts, SOLID principles, classic design patterns implemented in real Java code (Singleton with thread-safety, Factory, Builder, Observer, Strategy, Decorator, Adapter), Java 8+ features (lambdas, streams, Optional), String/memory basics, other core-Java refreshers (access modifiers, this/super, try-with-resources, enums), a Collections Framework deep dive (Comparable vs. Comparator, fail-fast/fail-safe iterators, HashMap internals, ConcurrentHashMap), modern Java 17–21 features (records, sealed classes, pattern matching), then core JavaScript, HTML5/CSS3, a Kafka deep-dive, CI/CD and Git basics, Swagger/OpenAPI, and testing framework names. If Java feels rusty, this is the doc to actually sit down and read start to finish rather than spot-check.
+**7. [General_Backend_Engineering_QA](General_Backend_Engineering_QA.md)**
+Everything framework-agnostic on the backend side, one-stop: API/auth 101 (REST, JWT structure, OAuth2, webhooks), networking, concurrency models, distributed systems (replication, consistency models, consistent hashing, Raft/Paxos), database internals, API design, caching, message queues (including a Kafka deep-dive), backend architecture patterns, microservices fundamentals (API Gateway, service discovery, 12-factor), observability, incident response & debugging methodology, testing strategy, algorithm design techniques (divide & conquer, DP, greedy), open-ended system-design prompts, SDLC, security fundamentals (OWASP, XSS, CSRF, SQLi, CORS, passwords), and CI/CD & Git. Read this if a question doesn't name Spring at all.
 
-**8. [Interview_Countdown_Plan](Interview_Countdown_Plan.md)**
-The doc that turns the other 7 into an actual plan. A gap analysis checked directly against the JD (what's real experience vs. conceptual-only vs. genuinely missing), the exact blanks only you can fill (Java-experience anchor, React Native example, four behavioral STAR stories, the unanswered logistics questions), a calendarized day-by-day schedule from today to the 3rd — including two full 60-minute timed mock-interview runs, which nothing else in these docs actually rehearses — a timebox for what a real 1-hour interview's minute allocation probably looks like, optional cheap repo additions that would close a conceptual-only gap with real evidence (Swagger UI, a Dockerfile, a Redux slice, a Liquibase changelog), and a ranked list of what's actually most likely to go wrong. Start here to know what order to read the rest in and what's still missing; come back to it daily as your schedule.
+**8. [General_Frontend_Engineering_QA](General_Frontend_Engineering_QA.md)**
+Doc 7's mirror image for the frontend: browser rendering fundamentals, JS module systems & build tooling, Core Web Vitals, framework-agnostic state management, browser storage, frontend security, accessibility, responsive design, browser networking, frontend testing, rendering strategies (CSR/SSR/SSG/ISR), frontend architecture patterns, core JavaScript fundamentals, HTML5/CSS3, and frontend-specific debugging (blank-screen crashes, performance diagnosis, memory leaks). Read this if a question is framed as "frontend" without naming React.
 
-**9. [Behavioral_Interview_Prep](Behavioral_Interview_Prep.md)**
-Your real behavioral story bank — STAR-formatted, built from an actual past interview debrief plus git-verified detail pulled directly from your Laku6 repos (not templates). Covers the two proven coaching-lesson gaps from a real interview (deferring too fast under pushback, going too abstract on "how do you learn"), a full story bank (Carousell 3-month contract, the pricing-service work, the offline-functionality feature, two conflict stories, a real production payments bug, a mistake/failure story), motivation/"why" questions adapted for OCBC, and a pitfalls list. **Contains an open decision**: git history shows the pricing-service story is more accurately "hardened a teammate's Go service, caught a bug that mispriced 462 SKUs" than "migrated it from Jupyter" — Doc 1 §8/§15 now carry both framings side by side pending your call, made here in one place.
-
-**10. [General_Backend_Engineering_QA](General_Backend_Engineering_QA.md)**
-Everything else in this project is Java/Spring, React, or banking-domain-specific — this is the framework-agnostic layer underneath: networking (TCP/UDP, TLS handshake, HTTP/1.1 vs. 2 vs. 3, DNS), concurrency models (thread-per-request vs. event loop vs. actor model), distributed systems fundamentals (replication strategies, consistency models, consistent hashing, Raft/Paxos at a conceptual level, logical clocks), database internals (B-tree indexing, connection pooling, replication lag), API design (pagination, backward compatibility, contract-first), caching, message queues/event-driven architecture, backend architecture patterns (hexagonal, CQRS, orchestration vs. choreography), observability (the three pillars, correlation IDs, SLA/SLO/SLI), testing strategy (the pyramid, contract testing, load vs. stress testing), OAuth2/OIDC/mTLS, and a brief Big-O refresher. Read this if a question doesn't name Spring or React at all — "how would you design X" or "explain Y" asked at the pure-backend-engineering level.
-
-**11. [General_Frontend_Engineering_QA](General_Frontend_Engineering_QA.md)**
-Doc 10's mirror image for the other side of the stack — `ReactJS_Interview_QA.md` is React-specific, this is the layer underneath it: browser rendering fundamentals (critical rendering path, reflow vs. repaint, `requestAnimationFrame`), JS module systems and build tooling (ESM vs. CommonJS, tree-shaking, code splitting), Core Web Vitals and resource hints, framework-agnostic state management concepts (client vs. server state, stale-while-revalidate, URL as state), browser storage, frontend security (Same-Origin Policy vs. CORS, CSP, why client-side validation isn't a security control), accessibility (semantic elements, ARIA, WCAG/POUR), responsive design (viewport meta, container queries), browser networking (fetch, HTTP caching headers, WebSockets vs. SSE vs. polling), frontend testing strategy, rendering strategies (CSR/SSR/SSG/ISR, hydration), and frontend architecture patterns (MVC/MVVM, composition over inheritance). Read this if a question is framed as "frontend" or "web" without naming React specifically.
-
-**12. [Project_Code_Walkthrough](Project_Code_Walkthrough.md)**
-Different from every other doc: not concepts, the actual `bank-demo` repo, file by file, in the exact order to read it. Sixteen stops from `pom.xml` through the Dockerfile/CI, each one naming exactly which lines matter and why, plus a "question → file" lookup table at the end. Use this if asked to share your screen or "walk me through this code" — it's the script for talking through your *own* repo fluently instead of reciting Spring theory disconnected from anything runnable. Also carries the explicit honesty framing: `bank-demo` is interview prep you built, not a claim of professional Java experience — your real projects are Laku6 and CIMB Niaga.
+**9. [Project_Code_Walkthrough](Project_Code_Walkthrough.md)**
+Not concepts — the actual `bank-demo` repo. Three views into the same code: a 16-stop reading order (`pom.xml` through the Dockerfile/CI, in the sequence a real request flows through the app), an Annotation Index (look up `@Transactional`, get every place it's used), and a Concept Index (look up "bean scope," get the explanation). Use this if asked to share your screen or "walk me through this code." Carries the honesty framing: `bank-demo` is interview prep you built, not a claim of professional Java experience — your real projects are Laku6 and CIMB Niaga.
 
 ---
 
@@ -50,14 +41,13 @@ Different from every other doc: not concepts, the actual `bank-demo` repo, file 
 
 If you're working through these over multiple sessions rather than all at once:
 
-0. **[Doc 8](Interview_Countdown_Plan.md)** — read this one first, actually. It's the calendarized version of everything below, plus the gap analysis and the blanks-to-fill list.
-1. **[Doc 1](OCBC_Interview_Consolidated_Prep.md)** first, in full — it's the spine everything else hangs off of. Fill in the blanks in the Java-experience section while you're there; don't skip them.
-2. **[Doc 6](Master_Question_Checklist.md), Part 0 only** — read the confirmed real-candidate questions early, so everything after this lands with "oh, this is the thing that actually gets asked" context.
-3. **[Doc 4](Spring_Java_Interview_QA.md) and [Doc 5](ReactJS_Interview_QA.md)** (Spring/Java and React Q&A) — the core technical content, best absorbed by talking the answers out loud, not just reading. Pair this session with **[Doc 12](Project_Code_Walkthrough.md)** — it's the guided tour through the actual code these two docs keep referencing.
-4. **[Doc 2](Banking_System_Design_Playbook.md) and [Doc 3](Real_World_Engineering_Scenarios_QA.md)** (Banking Playbook and Real-World Scenarios) — once the fundamentals from step 3 are solid, these scenario-style questions will make more sense and stick better.
-5. **[Doc 10](General_Backend_Engineering_QA.md) and [Doc 11](General_Frontend_Engineering_QA.md)** — read once each, straight through, ideally right after Doc 2/3 while distributed-systems thinking is already warmed up. Nothing here is fill-in-the-blank; it's pure breadth, but it's the layer a "backend depth" or "frontend depth" question can reach for without ever naming Spring or React.
-6. **[Doc 7](Technical_Fundamentals_Gap_Fill.md)** (Gap Fill) and the **rest of Doc 6** — treat these as breadth/insurance, useful if you have time left, lower priority than 1 through 4 if you're short on it.
+1. **[Doc 1](Master_Question_Checklist.md)** — 10 minutes, confirmed real questions, so everything after this lands with "oh, this is the thing that actually gets asked" context.
+2. **[Doc 2](Interview_Countdown_Plan.md)** — the calendarized plan for everything below.
+3. **[Doc 3](Self_Intro_And_Behavioral.md)** — fill in the blanks (Java-experience anchor, the pricing-story framing decision, the gRPC-story outcome) before anything else; they take the longest to get right and nobody else can write them for you.
+4. **[Doc 4](Spring_Java_QA.md) and [Doc 5](ReactJS_QA.md)** — the core technical content, best absorbed by talking the answers out loud. Pair this session with **[Doc 9](Project_Code_Walkthrough.md)** — the guided tour through the actual code these two docs keep referencing.
+5. **[Doc 6](Banking_Wealth_Domain_Playbook.md)** — once Doc 4's fundamentals are solid, these scenario-style questions will make more sense and stick better.
+6. **[Doc 7](General_Backend_Engineering_QA.md) and [Doc 8](General_Frontend_Engineering_QA.md)** — read once each, straight through. Nothing here is fill-in-the-blank; it's pure breadth, but it's the layer a "backend depth" or "frontend depth" question can reach for without ever naming Spring or React.
 
 ## One Thing Worth Doing Before the 3rd
 
-Say Section 3 of Doc 1 (your Java-experience framing) and the two React-Native-specific answers in Doc 5 out loud, once, in your own words — not read silently. Those are the spots built specifically around *your* real experience rather than general concepts, and they're the ones most likely to sound rehearsed-and-hollow if you're reading them for the first time in the interview itself.
+Say the Java-experience framing and the self-intro (both in Doc 3) out loud, once, in your own words — not read silently. Those are the spots built specifically around *your* real experience rather than general concepts, and they're the ones most likely to sound rehearsed-and-hollow if you're reading them for the first time in the interview itself.

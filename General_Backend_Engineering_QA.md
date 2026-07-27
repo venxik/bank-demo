@@ -6,6 +6,7 @@ Everything else in this project is Java/Spring-specific, React-specific, or bank
 ---
 
 ## Table of Contents
+- Part 0: API & Auth Fundamentals — Plain English First
 - Part 1: Networking & Protocol Fundamentals
 - Part 2: Concurrency Models
 - Part 3: Distributed Systems Fundamentals
@@ -17,8 +18,76 @@ Everything else in this project is Java/Spring-specific, React-specific, or bank
 - Part 9: Observability
 - Part 10: Testing Strategy
 - Part 11: Authentication & Authorization Protocols
-- Part 12: Algorithmic Complexity, Briefly
+- Part 12: Algorithm Design Techniques & Complexity Analysis
 - Part 13: Quick-Fire Round
+- Part 14: REST API & HTTP Fundamentals
+- Part 15: Building Scalable Systems
+- Part 16: Microservices Fundamentals
+- Part 17: Incident Response & Debugging
+- Part 18: Open-Ended System Design Prompts
+- Part 19: Software Development Life Cycle
+- Part 20: Security Fundamentals (Bank-Relevant)
+- Part 21: CI/CD & Git Basics
+
+---
+
+## Part 0: API & Auth Fundamentals — Plain English First
+
+Everywhere else in this doc assumes you already know what a REST API or a token is and goes straight to the nuance. This section is the layer *underneath* that — the plain-English definitions, for the version of the question that comes before the nuanced one ("what's a REST API," not "what makes an API RESTful"). If the deeper version of a topic here is wanted, it's cross-referenced.
+
+**Q: What's an API, in the simplest possible terms?**
+A: A contract that lets one piece of software ask another to do something or hand over data, without needing to know how the other side is built internally — you call a defined set of functions/endpoints, and get a defined response back. A REST API is just one common *style* of that contract, built on HTTP.
+
+**Q: What's a REST API?**
+A: An API that uses standard HTTP methods (`GET`, `POST`, `PUT`, `DELETE`) to operate on "resources" identified by URLs (`/accounts/1`), where the HTTP method says *what* to do and the URL says *what to do it to* — `GET /accounts/1` reads account 1, `DELETE /accounts/1` deletes it. The deeper version of this question — the actual architectural constraints that make an API "RESTful" (statelessness, uniform interface, cacheability) — is in Part 14 below; this is the one-sentence version to lead with if asked cold.
+
+```
+GET    /accounts/1          -> read account 1
+POST   /accounts            -> create a new account
+PUT    /accounts/1          -> replace/update account 1
+DELETE /accounts/1          -> delete account 1
+-- the URL names the resource, the HTTP method names the action, matches bank-demo's AccountController
+```
+
+**Q: What's JSON, and why is it the default over XML today?**
+A: A lightweight, human-readable text format for structured data — objects as `{key: value}` pairs, arrays as `[...]`. It won out over XML as the default API payload format for being less verbose (no closing tags), mapping directly onto native data structures in most languages (a JS object, a Python dict), and being trivially parseable. XML still shows up in enterprise/legacy systems (and is explicitly named in this JD's toolchain) — mainly where a formal schema (XSD) or namespacing matters more than payload size.
+
+```json
+{ "id": 1, "accountNumber": "ACC-001", "balance": 100.00 }
+```
+```xml
+<account><id>1</id><accountNumber>ACC-001</accountNumber><balance>100.00</balance></account>
+```
+
+**Q: What's a JWT (JSON Web Token), structurally — what's actually inside one?**
+A: Three base64url-encoded parts joined by dots: `header.payload.signature`. The **header** names the signing algorithm. The **payload** holds claims — standard ones like `sub` (subject/user id), `exp` (expiry timestamp), `iat` (issued-at), plus whatever custom claims the issuer wants (roles, tenant id). The **signature** is a cryptographic hash of the header+payload, signed with a secret/private key only the issuing server holds — this is what lets any server *verify* the token wasn't tampered with, without a database lookup, which is the entire reason JWTs scale statelessly across multiple servers.
+
+```
+eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJrZXZpbiIsImV4cCI6MTcyMTY1NjAwMH0.4f8a...
+└─── header ────────┘└──────── payload (claims) ─────────────┘└ signature ┘
+decoded header:  {"alg":"HS256"}
+decoded payload: {"sub":"kevin","exp":1721656000}
+```
+```java
+// verifying — no DB lookup needed, just recompute the signature and compare
+Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token); // throws if tampered or expired
+```
+A JWT is **not** encrypted by default — anyone can base64-decode and read the payload (try it on jwt.io) — it's only *signed*, so the guarantee is integrity ("this wasn't altered"), not confidentiality. Never put a password or a secret directly in a JWT payload thinking it's hidden.
+
+**Q: What's OAuth2, and what's a JWT's relationship to it?**
+A: OAuth2 is the *authorization framework* (the flow of granting access); a JWT is one common *format* the resulting access token happens to take — but OAuth2 access tokens don't have to be JWTs (some are opaque strings the server looks up in a DB instead), and JWTs get used outside OAuth2 entirely (a service just issuing its own signed session tokens, like `bank-demo` would need to if it added auth). Don't conflate the two — one's a protocol, one's a token format. Full OAuth2 flow + OIDC + mTLS coverage is in Part 11 below; this is just placing the two concepts relative to each other.
+
+**Q: Session-based auth vs. token-based auth — the plain-English version?**
+A: **Session** — after login, the server creates a record of "this user is logged in" and gives the client a reference (a session ID, usually in a cookie); the server looks that record up on every request. **Token-based** (JWT being the common case) — the server gives the client a self-contained, signed token; the client sends it on every request, and the server verifies it cryptographically without needing to look anything up in a shared store. Natural follow-up once JWT and OAuth2 are both on the table.
+
+**Q: What's the difference between authentication and authorization, one more time, plain English?**
+A: Authentication answers "who are you" (logging in). Authorization answers "what are you allowed to do, now that we know who you are" (permissions/roles). A valid JWT proves authentication; what it's allowed to do with that identity (an `@PreAuthorize` check, a role claim inside the token) is authorization — two separate questions, commonly conflated in casual conversation but worth keeping crisply separate out loud.
+
+**Q: What's a webhook, in plain terms?**
+A: The inverse of a normal API call — instead of you polling a server asking "anything new yet?", you register a URL of yours, and the *other* server calls *you* when something happens (a payment completes, an order ships). Turns a pull into a push, avoiding constant polling for events that are actually rare.
+
+**Q: What's middleware, in the general web-backend sense?**
+A: Code that runs *between* a request arriving and your actual route/controller handling it (or between the handler and the response going out) — logging, authentication checks, request parsing, rate limiting. Spring's proxy-based `@Transactional`/AOP (`Spring_Java_QA.md` Part 5) is one concrete implementation of the same idea; Express.js middleware functions or a Spring `Filter`/`Interceptor` are others. The pattern is universal even though the exact mechanism differs per framework.
 
 ---
 
@@ -87,7 +156,7 @@ Leaderless:       Client writes to 3 of 5 nodes (W=3), reads from 3 of 5 (R=3) �
 ```
 
 **Q: What's the difference between strong, eventual, and causal consistency?**
-A: **Strong consistency** — every read sees the latest write, immediately, everywhere (expensive, often means CP in CAP terms). **Eventual consistency** — replicas converge to the same value *eventually*, but a read right after a write might see stale data briefly. **Causal consistency** — a middle ground: operations that are causally related (a reply to a comment) are seen in the correct order everywhere, but unrelated operations can be seen in different orders on different nodes. Picking the right one is a business decision, not just a technical one — this is the same judgment call as the Banking Playbook's CAP framing, generalized beyond banking: balances need strong consistency, a "likes" counter can tolerate eventual.
+A: **Strong consistency** — every read sees the latest write, immediately, everywhere (expensive, often means CP in CAP terms). **Eventual consistency** — replicas converge to the same value *eventually*, but a read right after a write might see stale data briefly. **Causal consistency** — a middle ground: operations that are causally related (a reply to a comment) are seen in the correct order everywhere, but unrelated operations can be seen in different orders on different nodes. Picking the right one is a business decision, not just a technical one — this is the same judgment call as `Banking_Wealth_Domain_Playbook.md`'s CAP framing, generalized beyond banking: balances need strong consistency, a "likes" counter can tolerate eventual.
 
 **Q: What's consistent hashing, and what problem does it solve?**
 A: A hashing scheme where adding or removing a node only reshuffles a small fraction of keys (roughly `1/N`), instead of nearly all of them like a naive `hash(key) % N` would. Nodes and keys are both hashed onto the same conceptual ring; a key belongs to the next node clockwise from its hash position. This is why it shows up constantly in distributed caches (Redis Cluster, Memcached) and load balancers wanting session affinity — losing one node doesn't force a near-total cache invalidation.
@@ -144,6 +213,31 @@ spring:
 **Q: Read replicas — what's replication lag, and why does it matter for correctness?**
 A: A read replica applies the primary's writes asynchronously, so there's a window where the replica is *behind* — reading from it right after a write can return stale data. This matters directly for a pattern like "create a resource, then immediately read it back" — if that read hits a lagging replica, the resource might appear not to exist yet. Common mitigations: read-your-own-writes consistency (route a user's own reads to the primary briefly after they write), or simply routing anything correctness-sensitive to the primary and reserving replicas for tolerant reads (dashboards, search).
 
+**Q: Explain the types of SQL joins.**
+A: `INNER JOIN` — only rows with matches in both tables. `LEFT JOIN` — all rows from the left table, matched rows from the right (unmatched right-side columns are null). `RIGHT JOIN` — mirror of left. `FULL OUTER JOIN` — all rows from both, matched where possible.
+
+```sql
+-- accounts: id 1,2,3.  transactions: account_id 1,1,2 (no transactions for account 3)
+
+SELECT * FROM accounts a INNER JOIN transactions t ON a.id = t.account_id;
+-- returns 3 rows (accounts 1 and 2 only) — account 3 has no match, so it's dropped entirely
+
+SELECT * FROM accounts a LEFT JOIN transactions t ON a.id = t.account_id;
+-- returns 4 rows — account 3 still appears, with every transactions.* column as NULL
+```
+
+**Q: What's database normalization, briefly?**
+A: Organizing tables to reduce data redundancy and avoid update anomalies, by progressively splitting data into related tables (1NF, 2NF, 3NF being the common levels referenced in interviews) connected by foreign keys. The tradeoff: fully normalized data means more joins, which is exactly why denormalization sometimes gets deliberately reintroduced at scale (Part 15 below).
+
+```sql
+-- denormalized — owner name repeated on every row, an update means N writes, N chances to drift
+CREATE TABLE accounts (id, account_number, owner_name, owner_address, balance);
+
+-- normalized — owner lives in one place, referenced by id
+CREATE TABLE owners (id, name, address);
+CREATE TABLE accounts (id, account_number, owner_id REFERENCES owners(id), balance);
+```
+
 ---
 
 ## Part 5: API Design Principles
@@ -168,12 +262,30 @@ A: Add fields, don't remove or repurpose them; make new fields optional with sen
 **Q: What does "contract-first" API design mean, and why would a team choose it?**
 A: Writing the OpenAPI spec (or similar) *before* implementation, then generating server stubs and client SDKs from it, instead of writing the code first and generating docs afterward (springdoc-openapi's approach, which `bank-demo` uses). Contract-first forces early agreement between frontend/backend/QA on the exact shape of an API before anyone builds against it — valuable on larger teams where frontend and backend work in parallel; code-first is faster for a small team or a single owner where the contract and implementation naturally stay in sync.
 
+**Q: What's Swagger/OpenAPI, and why does it matter in practice?**
+A: OpenAPI is a specification format for describing a REST API's endpoints, request/response schemas, and auth requirements in a machine-readable way (YAML/JSON) — the spec that "contract-first" above refers to. Swagger is the tooling built around that spec — most relevantly Swagger UI, which generates interactive, browsable documentation straight from the spec, and libraries like springdoc-openapi that generate the spec *automatically* from your Spring annotations rather than you hand-writing it. The practical payoff: documentation stays in sync with the actual code because it's generated, not hand-maintained.
+
+```xml
+<!-- bank-demo's real pom.xml — this one dependency is the entire integration -->
+<dependency>
+    <groupId>org.springdoc</groupId>
+    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+    <version>2.6.0</version>
+</dependency>
+```
+```bash
+# generated automatically from AccountController's existing @GetMapping/@PostMapping methods —
+# zero extra annotations needed for it to show up
+open http://localhost:8080/swagger-ui/index.html
+curl http://localhost:8080/v3/api-docs   # the raw OpenAPI JSON spec
+```
+
 ---
 
 ## Part 6: Caching Strategies
 
-**Q: Cache-aside vs. write-through vs. write-behind — recap with the actual code shape of each.**
-A: Already covered in Real_World_Engineering_Scenarios_QA with the one-line definitions — repeating with the shape of each so the difference is concrete, not just named.
+**Q: Cache-aside vs. write-through vs. write-behind — what's the actual code shape of each?**
+A: Three different points at which the cache and the database get updated relative to each other.
 
 ```python
 # cache-aside — app owns the logic, cache is populated lazily on a miss
@@ -224,6 +336,48 @@ continue_on_error: true   # after 3 failed attempts, message routes to a dead-le
 **Q: What's backpressure, and how do you handle a consumer that's slower than its producer?**
 A: When a fast producer overwhelms a slower consumer, backpressure is any mechanism that pushes back rather than letting the consumer's queue grow unbounded until it crashes. Options: bounded queues that block the producer once full, rate-limiting the producer, or scaling out consumers (more instances in the consumer group). The wrong answer is an unbounded in-memory buffer — that's a memory leak with a friendlier name.
 
+**Q: What is Kafka specifically, in plain terms, and how does it differ from the queue/pub-sub shapes above?**
+A: A distributed event streaming platform — the "streaming log" row in the table above, concretely. Producers publish messages to named topics; consumers subscribe and read them; and — unlike a transient in-memory queue — Kafka durably stores the stream, so multiple independent consumers can read the same data, and can even replay it from an earlier point.
+
+```java
+// producer
+kafkaTemplate.send("order-events", orderId.toString(), new OrderCreated(orderId));
+
+// consumer
+@KafkaListener(topics = "order-events")
+void onOrderEvent(OrderCreated event) { notificationService.notify(event); }
+```
+
+**Q: What's a Kafka partition, and why does it matter?**
+A: A topic is split into partitions, each an ordered, append-only log. Partitioning is what lets Kafka parallelize — different partitions can be consumed simultaneously by different consumers. **Kafka guarantees ordering within a partition, but not across partitions of the same topic.** If strict ordering matters for a given entity (e.g., all events for one order), you route by a key (e.g., order ID) so every event for that entity lands on the same partition, in order.
+
+```java
+// keying by orderId — every event for THIS order always lands on the same partition, in order
+kafkaTemplate.send("order-events", /* key= */ orderId.toString(), event);
+```
+
+**Q: What's a Kafka consumer group?**
+A: A set of consumers splitting the work of consuming a topic — each partition is assigned to exactly one consumer within the group at a time, so the group processes the topic in parallel, and Kafka automatically rebalances partition assignments when a consumer joins or leaves.
+
+```java
+@KafkaListener(topics = "order-events", groupId = "notification-service")
+// 3 instances of this service, same groupId → Kafka splits the topic's partitions across all 3
+```
+
+**Q: How does Kafka handle a consumer crashing?**
+A: Consumers commit their processing offset (position within a partition) back to Kafka after processing a message. If a consumer crashes and restarts — or its partitions get reassigned to another consumer in the group — processing resumes from the last committed offset instead of from the beginning.
+
+**Q: Why choose Kafka/event-driven messaging over direct REST calls between services?**
+A: REST calls are synchronous and create temporal coupling — both services need to be up and responsive at the same moment. An event-driven approach decouples that: the producer doesn't need the consumer to be available *right now*, just *eventually*. Directly the same resilience story as the circuit-breaker content in `Banking_Wealth_Domain_Playbook.md`.
+
+```java
+// REST — both services must be up RIGHT NOW, or this call fails
+notificationClient.send(orderId); // temporal coupling
+
+// event-driven — producer doesn't care if the consumer is up this second
+kafkaTemplate.send("order-events", event); // fire and forget, consumer catches up whenever it's ready
+```
+
 ---
 
 ## Part 8: Backend Architecture Patterns
@@ -245,7 +399,7 @@ A: The core business logic sits in the center, depending only on interfaces ("po
 ```
 
 **Q: CQRS vs. plain CRUD — when does the added complexity actually pay off?**
-A: Already introduced conceptually in the Banking Playbook (paired with event sourcing) — worth the generic framing too: CQRS splits the *write* model from the *read* model, letting each be optimized independently (a normalized write model for correctness, a denormalized read model for fast queries). It earns its complexity when read and write patterns are genuinely different at scale (heavy read traffic with complex query needs, alongside simpler high-integrity writes) — for most CRUD services, a single model for both is simpler and entirely sufficient; reaching for CQRS by default is a common over-engineering mistake.
+A: Already introduced conceptually in `Banking_Wealth_Domain_Playbook.md` (paired with event sourcing) — worth the generic framing too: CQRS splits the *write* model from the *read* model, letting each be optimized independently (a normalized write model for correctness, a denormalized read model for fast queries). It earns its complexity when read and write patterns are genuinely different at scale (heavy read traffic with complex query needs, alongside simpler high-integrity writes) — for most CRUD services, a single model for both is simpler and entirely sufficient; reaching for CQRS by default is a common over-engineering mistake.
 
 **Q: Orchestration vs. choreography in a microservices workflow?**
 A: **Orchestration** — a central coordinator (an orchestrator service, or a workflow engine like Temporal/Camunda) explicitly calls each service in sequence and tracks the overall state. **Choreography** — no central coordinator; each service reacts to events from others and emits its own, with the overall flow emerging from these independent reactions. Orchestration is easier to reason about and debug (one place to look); choreography scales better organizationally (services stay decoupled) but the overall flow can become hard to trace without good tooling (distributed tracing becomes not-optional).
@@ -255,7 +409,7 @@ A: **Orchestration** — a central coordinator (an orchestrator service, or a wo
 ## Part 9: Observability
 
 **Q: What are "the three pillars of observability"?**
-A: **Logs** — discrete, timestamped events, good for "what exactly happened at this moment." **Metrics** — numeric measurements aggregated over time (request rate, error rate, latency percentiles), good for "is the system healthy right now, and is it trending worse." **Traces** — the path of a single request across multiple services, good for "where in this call chain did the time actually go" (directly the tool from the Banking Playbook's Scenario 1 and the performance-debugging methodology in Real_World_Engineering_Scenarios_QA).
+A: **Logs** — discrete, timestamped events, good for "what exactly happened at this moment." **Metrics** — numeric measurements aggregated over time (request rate, error rate, latency percentiles), good for "is the system healthy right now, and is it trending worse." **Traces** — the path of a single request across multiple services, good for "where in this call chain did the time actually go" (directly the tool from `Banking_Wealth_Domain_Playbook.md` Scenario 1 and the performance-debugging methodology in Part 17 below).
 
 **Q: What's structured logging, and why does it matter more at scale than a human-readable log line?**
 A: Logging as machine-parseable key-value data (JSON) instead of a free-text sentence, so a log aggregator (ELK, Datadog) can filter/query/alert on specific fields reliably instead of grep-ing text patterns that might change.
@@ -299,7 +453,10 @@ A: Many fast, cheap unit tests at the base → fewer, slower integration tests i
 A: A consumer (e.g., a frontend, or a downstream service) defines the contract it expects from a provider API (request/response shapes) as an executable test; the provider runs that same contract against its real implementation in CI. Catches breaking API changes *before* they reach a shared staging environment, without needing a slow, flaky, fully-deployed end-to-end test across both services. Pact is the common tool name to recognize.
 
 **Q: What's a load test actually measuring, and what's the difference between load testing and stress testing?**
-A: **Load testing** — how the system behaves under an *expected* level of traffic, checking latency/error rate stay within target (validates capacity planning). **Stress testing** — deliberately pushing traffic *past* expected levels to find the actual breaking point and how the system fails (gracefully degrading vs. falling over completely) — this is where you find out if your circuit breakers and bulkheads (Banking Playbook, Scenario 7) actually work under real pressure, not just in theory.
+A: **Load testing** — how the system behaves under an *expected* level of traffic, checking latency/error rate stay within target (validates capacity planning). **Stress testing** — deliberately pushing traffic *past* expected levels to find the actual breaking point and how the system fails (gracefully degrading vs. falling over completely) — this is where you find out if your circuit breakers and bulkheads (`Banking_Wealth_Domain_Playbook.md` Scenario 7) actually work under real pressure, not just in theory.
+
+**Q: What would you use to test a Spring Boot service, named correctly rather than "some testing library"?**
+A: JUnit 5 for test structure and assertions, Mockito for mocking dependencies in unit tests, and `@SpringBootTest` — or the more targeted "slice" annotations like `@WebMvcTest` or `@DataJpaTest` — for integration tests that load some or all of the Spring context. Full code examples are in `Spring_Java_QA.md` Part 15.
 
 ---
 
@@ -321,9 +478,9 @@ A: Normal HTTPS/TLS only verifies the *server's* identity to the client (the pad
 
 ---
 
-## Part 12: Algorithmic Complexity, Briefly
+## Part 12: Algorithm Design Techniques & Complexity Analysis
 
-Per Master_Question_Checklist Part 0, nobody reported a live coding round for this stage — this is here for the occasional "what's the complexity of X" aside, not LeetCode prep.
+`Master_Question_Checklist.md` says nobody reported a *live coding* round for this stage — but "explain algorithm design techniques such as divide and conquer, dynamic programming, greedy algorithms and their complexity analysis" is a confirmed real OCBC question (Jul 2026) asked at the *conceptual* level, not as a coding exercise. This section is that concept-level answer — recognize the shape of each technique and talk through the complexity tradeoff, not implement one live.
 
 **Q: What does Big-O notation actually describe?**
 A: How an algorithm's runtime (or memory) grows as input size grows, ignoring constant factors — a way to compare algorithms' *scaling behavior*, not their exact speed on one specific machine. `O(1)` constant, `O(log n)` logarithmic (a balanced tree/index lookup), `O(n)` linear (a full scan), `O(n log n)` (a good sort), `O(n²)` quadratic (nested loops over the same data — the common "this got slow at scale" culprit).
@@ -336,6 +493,56 @@ for (Account a : accounts)
     for (Account b : accounts) { ... }             // O(n²) — the shape that quietly kills performance at scale
 ```
 
+**Q: What's divide and conquer, and what's the classic example?**
+A: Break a problem into smaller subproblems of the *same* shape, solve each recursively, then combine the results. Merge sort is the textbook example: split the array in half, recursively sort each half, merge the two sorted halves. The complexity comes from the recurrence `T(n) = 2T(n/2) + O(n)` (two half-size subproblems, plus linear work to merge) — which resolves to `O(n log n)`: `log n` levels of splitting, `O(n)` work to merge at each level.
+
+```java
+int[] mergeSort(int[] arr) {
+    if (arr.length <= 1) return arr;                    // base case
+    int mid = arr.length / 2;
+    int[] left = mergeSort(Arrays.copyOfRange(arr, 0, mid));   // divide — same problem, half the size
+    int[] right = mergeSort(Arrays.copyOfRange(arr, mid, arr.length));
+    return merge(left, right);                          // conquer — combine two sorted halves, O(n)
+}
+// T(n) = 2T(n/2) + O(n)  ->  O(n log n)
+```
+
+**Q: What's dynamic programming, and when does it actually help?**
+A: Break a problem into overlapping subproblems (the key difference from divide and conquer — the subproblems *repeat*), solve each one only once, and cache ("memoize") the result so it's never recomputed. Helps specifically when a naive recursive solution would redo the same work exponentially many times — the classic teaching example is Fibonacci: naive recursion is `O(2^n)` (recomputing `fib(n-2)` dozens of times across different call branches), memoized is `O(n)` (each value computed exactly once).
+
+```java
+// naive — O(2^n), recomputes fib(2) and fib(3) many times over as n grows
+int fibNaive(int n) { return n <= 1 ? n : fibNaive(n-1) + fibNaive(n-2); }
+
+// dynamic programming (memoized) — O(n), each subproblem solved exactly once
+int fibDp(int n, Map<Integer, Integer> memo) {
+    if (n <= 1) return n;
+    if (memo.containsKey(n)) return memo.get(n);         // subproblem already solved — reuse it
+    int result = fibDp(n-1, memo) + fibDp(n-2, memo);
+    memo.put(n, result);
+    return result;
+}
+```
+Real-world framing if asked "where would you actually use this": anywhere you're computing something that depends on overlapping smaller versions of itself — pricing/optimization calculations, shortest-path variants, anything with a "cache the subresult" instinct, which is the same instinct behind caching in general (Part 6) just applied within a single computation instead of across requests.
+
+**Q: What's a greedy algorithm, and what's the catch?**
+A: Make the locally-optimal choice at each step, never reconsidering it, hoping (and for some problems, provably guaranteeing) that a sequence of locally-optimal choices adds up to a globally-optimal result. Fast — usually `O(n log n)` or better, no recursion/backtracking — but the catch is it doesn't work for every problem: greedy only produces a truly optimal answer when the problem has "optimal substructure" and the "greedy-choice property" (a local optimum provably leads toward a global one). Coin-change with well-behaved denominations (like most real currency systems) is the classic example that *does* work greedily; the general knapsack problem is the classic example where greedy gives a decent-but-not-always-optimal answer and you actually need dynamic programming instead.
+
+```java
+// greedy coin change — works correctly for canonical denominations (1, 5, 10, 25, ...)
+int coinsNeeded(int amount, int[] denominations) { // sorted descending
+    int count = 0;
+    for (int coin : denominations) {
+        count += amount / coin;   // take as many of the largest coin as fit — never reconsidered
+        amount %= coin;
+    }
+    return count;
+}
+```
+
+**Q: How do you talk through the complexity tradeoff between these three, in one breath?**
+A: Divide and conquer — subproblems don't overlap, no need to cache anything, complexity comes from the split/combine recurrence (`O(n log n)` typical). Dynamic programming — subproblems *do* overlap, caching turns exponential into polynomial. Greedy — no subproblems at all, just a locally-optimal choice repeated, fastest of the three when it's provably correct for the problem, wrong (or merely approximate) when it isn't. If asked to pick one for an unfamiliar problem: check for overlapping subproblems first (DP candidate); if none, check whether a greedy choice is provably safe (often via an exchange argument); divide and conquer is usually the answer when the problem naturally splits into independent same-shaped halves (sorting, searching, closest-pair-of-points-style geometry problems).
+
 ---
 
 ## Part 13: Quick-Fire Round
@@ -347,3 +554,422 @@ Short, direct answers, under 15 seconds each:
 - **What's a bloom filter, and what's it for?** A probabilistic set membership check — can say "definitely not in the set" with certainty, or "possibly in the set" (with a tunable false-positive rate), using far less memory than storing the actual set. Common use: checking "might this key exist in the DB" before paying for an actual disk read.
 - **What's the difference between a monolith, an SOA, and microservices?** Monolith — one deployable unit. SOA — a handful of larger, often shared-infrastructure services. Microservices — many small, independently deployable services, each owning its own data — the modern end of the same spectrum SOA started.
 - **What's graceful degradation?** Continuing to serve a reduced/simplified experience when a dependency fails, instead of a hard error — e.g., showing a cached price with a "may be stale" note instead of a blank screen.
+
+---
+
+## Part 14: REST API & HTTP Fundamentals
+
+The deeper version of Part 0's "what's a REST API" — worth having crisp, since "full stack" interviews test this directly.
+
+**Q: What makes an API "RESTful"?**
+A: Adherence to a small set of architectural constraints: **statelessness** (each request contains everything needed to process it — no server-side session state between requests), a **uniform interface** (consistent use of HTTP methods and resource-based URLs), **cacheability** (responses indicate whether they can be cached), and **resource-based architecture** (URLs represent nouns/resources, not actions — `/orders/123`, not `/getOrder?id=123`).
+
+```
+Resource-based, matches bank-demo's own AccountController:
+GET    /accounts/1          → fetch account 1
+POST   /accounts/1/deposit  → mutate account 1 (the action is the verb+path, not the noun)
+```
+
+**Q: Are HTTP methods idempotent? Which ones, and why does it matter?**
+A: `GET`, `PUT`, and `DELETE` are idempotent — calling them multiple times with the same input produces the same result/end state. `POST` is not idempotent by default — calling it twice typically creates two resources. This is directly the same idempotency concept as `Banking_Wealth_Domain_Playbook.md` Scenario 2, applied at the HTTP-verb level: it's *why* `PUT` is the natural choice for an "update," and why a `POST`-based payment-creation endpoint needs its own explicit idempotency key rather than relying on the HTTP method alone.
+
+```bash
+# PUT — idempotent, calling it 5 times leaves the same end state as calling it once
+curl -X PUT /accounts/1 -d '{"ownerName":"Kevin"}'
+
+# POST — NOT idempotent by default, calling it twice creates two accounts
+curl -X POST /accounts -d '{"accountNumber":"ACC-001", ...}'
+# this is exactly why bank-demo's deposit/withdraw/transfer (all POST) need the
+# explicit Idempotency-Key header — the HTTP method alone doesn't protect you
+```
+
+**Q: What are the HTTP status codes worth knowing cold?**
+A: `200` OK, `201` Created, `204` No Content (success, nothing to return — common for DELETE), `400` Bad Request (malformed input), `401` Unauthorized (not authenticated), `403` Forbidden (authenticated, but not allowed), `404` Not Found, `409` Conflict (e.g., a duplicate resource, or an optimistic-locking version mismatch), `422` Unprocessable Entity (well-formed but semantically invalid, e.g., failed validation), `500` Internal Server Error, `503` Service Unavailable (often paired with the circuit-breaker pattern — the service is deliberately failing fast, not crashed).
+
+```java
+// bank-demo's GlobalExceptionHandler maps exceptions to exactly these codes
+@ExceptionHandler(AccountNotFoundException.class)
+ResponseEntity<ErrorResponse> handleNotFound(AccountNotFoundException e) {
+    return ResponseEntity.status(404).body(new ErrorResponse(e.getMessage()));
+}
+@ExceptionHandler(OptimisticLockingFailureException.class)
+ResponseEntity<ErrorResponse> handleConflict(OptimisticLockingFailureException e) {
+    return ResponseEntity.status(409).body(new ErrorResponse("account was updated concurrently, retry"));
+}
+```
+
+**Q: How would you approach API versioning?**
+A: Most common approaches: URI versioning (`/v1/orders`, `/v2/orders` — simple, visible, but can feel unclean) or header-based versioning (`Accept: application/vnd.company.v2+json` — cleaner URLs, less discoverable). URI versioning is the more common pragmatic default in most real codebases, even though header versioning is sometimes considered more "correct" REST design.
+
+```
+URI versioning:    GET /v1/accounts/1   vs.   GET /v2/accounts/1
+Header versioning: GET /accounts/1
+                   Accept: application/vnd.bank.v2+json
+```
+
+---
+
+## Part 15: Building Scalable Systems
+
+**Q: How would you design a system to handle 10x the current traffic?**
+The structure interviewers want to see, in order:
+1. **Clarify first**: what's the current bottleneck — reads, writes, or both? What's the actual growth timeline (10x over a year vs. 10x tomorrow changes the answer)? This alone signals seniority — jumping straight to a solution without scoping the problem is a common junior tell.
+2. **Stateless services + load balancer**: if your application servers don't hold session state locally, you can add more of them behind a load balancer and scale horizontally almost for free. This is why externalizing session state (e.g., to Redis) matters — it's what makes horizontal scaling possible in the first place.
+3. **Scale the database** (usually the real bottleneck) — see the ranked list below.
+4. **CDN for static assets** — offload anything that doesn't change per-request (images, JS bundles, CSS) to the edge.
+5. **Move non-critical-path work off the request thread**: anything that doesn't need to happen synchronously for the user to get their response (sending a notification, updating an analytics count) goes onto a queue and gets processed asynchronously.
+6. **Monitor and iterate**: scalability isn't a one-time design decision, it's an ongoing practice — instrument the system so you can see the *next* bottleneck coming before it becomes an outage.
+
+```java
+// #2 — stateless: session lives in Redis, not in this instance's memory,
+// so any instance behind the load balancer can serve any request
+@Service
+class SessionService {
+    private final RedisTemplate<String, Session> redis;
+    Session get(String sessionId) { return redis.opsForValue().get(sessionId); }
+}
+
+// #5 — move work off the request thread onto a queue
+@PostMapping("/orders")
+ResponseEntity<Order> createOrder(@RequestBody OrderRequest req) {
+    Order order = orderService.create(req);
+    eventPublisher.publish(new OrderCreated(order.id())); // notification/analytics happen async
+    return ResponseEntity.ok(order); // response returns immediately, doesn't wait on either
+}
+```
+
+**Q: How do you scale a database that's become a bottleneck?**
+In rough order of "do this first, it's cheap" to "do this last, it's expensive":
+1. **Indexing** — the single highest-leverage fix for slow queries; missing indexes on frequently filtered/joined columns are the most common real-world cause of a "slow database" (Part 4).
+2. **Query optimization** — check execution plans (`EXPLAIN`), eliminate unnecessary joins, avoid `SELECT *`.
+3. **Connection pooling** — make sure you're not exhausting DB connections under load (Part 4).
+4. **Read replicas** — for read-heavy workloads, route reads to replicas and keep writes on the primary (Part 4).
+5. **Caching** (Part 8) in front of the DB for hot data — trades a bit of staleness for a lot of load reduction.
+6. **Denormalization** — duplicate some data to avoid expensive joins at read time (Part 4).
+7. **Sharding/partitioning** — split data across multiple database instances by some key (e.g., customer ID) — solves scale, but adds meaningful complexity (cross-shard queries, rebalancing when a shard gets too big). Bring this up as an option, but be clear it's not step one.
+
+```sql
+-- #1 — the fix that's usually the actual answer
+EXPLAIN SELECT * FROM accounts WHERE account_number = 'ACC-001';
+-- "Seq Scan on accounts" in the output means: no index, full table scan every call
+CREATE INDEX idx_accounts_account_number ON accounts(account_number);
+-- re-run EXPLAIN: "Index Scan using idx_accounts_account_number" — O(log n) instead of O(n)
+```
+
+**Q: How would you design a notification system?**
+- Event-driven: something happens (a trade fills, a large transfer completes) → an event is published (Kafka or similar) → a notification service consumes it and decides who to notify and how.
+- Support multiple channels (push, SMS, email) — usually via a fan-out step, each channel handled by its own worker/service.
+- **Idempotency matters here too** — if the consumer processes the same event twice, the user shouldn't get the same notification twice.
+- Retry with backoff for delivery failures, but with a cap — don't retry a push notification forever if the device is offline.
+- Respect user preferences and rate limits — notification systems that don't throttle themselves train users to ignore (or disable) them entirely.
+
+```java
+// same Strategy-pattern fan-out bank-demo already implements —
+// NotificationService.java + ConsoleNotificationService/SmsNotificationService
+for (NotificationService channel : notificationChannels) {
+    channel.notify(account, message); // every registered channel fires, caller doesn't know which exist
+}
+```
+
+**Q: How would you design a rate limiter?**
+- **Token bucket**: a bucket refills with tokens at a fixed rate; each request consumes a token; if the bucket's empty, the request is rejected/delayed. Allows short bursts up to the bucket size.
+- **Leaky bucket**: requests queue and are processed at a fixed output rate — smooths bursts rather than allowing them.
+- **Sliding window**: count requests in a rolling time window rather than a fixed one, avoiding the edge-case where a fixed window resets and allows a burst right at the boundary.
+- Where to implement: at the API gateway/edge for coarse per-client limits, or in-app for finer-grained business-logic limits (e.g., "max 3 large transfers per hour").
+- For a distributed system, the rate-limit counter itself needs to live somewhere shared — Redis is the standard choice, since it's fast and supports atomic increment operations.
+
+```java
+// token bucket, simplified — Redis makes the increment atomic across instances
+boolean allowRequest(String clientId, int maxTokens, Duration refillPeriod) {
+    String key = "rate:" + clientId;
+    Long count = redis.opsForValue().increment(key);
+    if (count == 1) {
+        redis.expire(key, refillPeriod); // first request in this window starts the clock
+    }
+    return count <= maxTokens; // over the limit once count exceeds maxTokens for this window
+}
+```
+
+**Q: What are the load balancing strategies worth naming?**
+A: **Round robin** — simple, even distribution, cycles through servers in order. **Least connections** — routes to whichever server currently has the fewest active connections, better when requests vary widely in cost. **Consistent hashing** — routes the same key to the same server consistently, useful when you want cache locality or session affinity (the same mechanism as Part 3's consistent-hashing ring, applied to request routing instead of data placement).
+
+---
+
+## Part 16: Microservices Fundamentals
+
+**Q: What's the difference between a monolith and microservices, in your own words?**
+A: A monolith is built and deployed as a single unit — all modules share the same process and typically the same database. Microservices decompose the application into small, independently deployable services, each owning a specific business capability and typically its own data store. The tradeoff: microservices buy you independent scaling and deployment, at the cost of needing to solve problems (service discovery, distributed transactions, network reliability) that simply don't exist inside a single process.
+
+```
+Monolith:        [ Web + Orders + Payments + Inventory ]  ← one process, one deploy, one DB
+Microservices:   [ Web ] → [ Orders ] → [ Payments ] → [ Inventory ]  ← 4 processes, 4 deploys, own DBs each,
+                    talking over the network (REST/gRPC/Kafka) instead of an in-process method call
+```
+
+**Q: What's an API Gateway, and why use one?**
+A: A reverse proxy sitting between clients and your microservices, centralizing cross-cutting concerns — authentication, SSL termination, rate limiting, request routing, response caching — so individual services don't each have to implement them. (Spring Cloud Gateway is the current standard in the Spring ecosystem; Netflix Zuul is the older, now-legacy alternative worth recognizing by name but not necessarily using.)
+
+```
+Client → [ API Gateway: auth, rate limit, routing ] → Orders Service
+                                                     → Payments Service
+                                                     → Inventory Service
+```
+
+**Q: What is service discovery, and why does it matter?**
+A: In a system where service instances scale up/down and get rescheduled to different hosts, hardcoded IP addresses don't work. A service registry (e.g., Eureka, Consul) lets services register themselves on startup and lets other services look them up by name instead of a fixed address — the registry stays current as instances come and go.
+
+```java
+// without service discovery — brittle, breaks the moment the IP changes
+restTemplate.getForObject("http://10.0.1.42:8080/orders", Order.class);
+
+// with it — resolved by name, always current
+restTemplate.getForObject("http://orders-service/orders", Order.class);
+```
+
+**Q: What's a Config Server, and what problem does it solve?**
+A: Centralized, externalized configuration for a fleet of microservices — instead of each service carrying its own config file, they all pull configuration from a central config service at startup (and can refresh it without a redeploy). Same underlying problem as Spring profiles (`Spring_Java_QA.md` Part 11), just solved at fleet scale instead of per-service.
+
+**Q: What are the "12-Factor App" principles, at a high level?**
+A: A set of conventions for building cloud-native, horizontally-scalable services — the ones most likely to come up: config stored in environment variables (not hardcoded), treating backing services (DB, cache, queue) as attached resources you can swap without code changes, and — critically for the microservices context — services being stateless processes so any instance can handle any request.
+
+```bash
+# config in the environment, not hardcoded — Factor III
+export SPRING_DATASOURCE_URL=jdbc:postgresql://prod-host:5432/bank
+java -jar app.jar   # reads DATASOURCE_URL from env, same jar works in every environment
+```
+
+**Q: REST vs. GraphQL — when would you choose one over the other?**
+A: REST is well-suited to clearly-defined, resource-oriented APIs with predictable access patterns — simple to cache, simple to reason about, and the ecosystem (tooling, familiarity) is mature. GraphQL earns its complexity when clients have highly variable data needs (a mobile app wanting a lean payload vs. a web dashboard wanting a deep one) and you want to avoid either over-fetching or maintaining many bespoke REST endpoints. For a role like this, REST is the safe default answer unless the JD or interviewer specifically signals otherwise — and this one didn't.
+
+```
+REST:    GET /accounts/1                → fixed shape, whatever the endpoint returns
+GraphQL: query { account(id: 1) { balance } }  → caller picks exactly the fields it needs
+```
+
+---
+
+## Part 17: Incident Response & Debugging
+
+**Q: Walk me through general incident response shape, backend or full-stack.**
+The structure that reads as "this person has actually been on call," in order:
+1. **Acknowledge and declare**: confirm the alert is real, and if it's significant, formally declare an incident (severity level, a dedicated channel/war room) so effort doesn't get duplicated and stakeholders know who owns it.
+2. **Assess impact fast, using dashboards** — how many users/requests affected, is it growing or stable, is it one region/service or everything.
+3. **Look for what changed recently** — a recent deploy or config change is the most common root cause; correlate the incident start time against your deploy history first.
+4. **Mitigate before you fully understand root cause** — a rollback that restores service in minutes is almost always the right first move, even if you don't yet know exactly *why* the deploy broke things. Understanding "why" can happen after service is restored.
+5. **Communicate on a fixed cadence** — regular short updates (e.g., every 10–15 minutes) to stakeholders, even if the update is just "still investigating, next update at X." Silence is worse than an unfinished update.
+6. **Blameless postmortem afterward** — what happened, what you did, what you'll change (better pre-deploy testing, an added monitor, a safer deployment pattern) so the same failure mode is caught earlier next time.
+
+```bash
+# step 4 in real terms — rollback first, root-cause after service is restored
+kubectl rollout undo deployment/bank-demo   # or: git revert + redeploy the last known-good image
+```
+
+**Q: Walk me through debugging a performance bottleneck, step by step.**
+This is a methodology question as much as a tools question — interviewers are checking whether you have a repeatable process, not just a list of tool names.
+1. **Establish a baseline first.** You can't say something is "slow" without knowing what "normal" looks like — response time percentiles (p50/p95/p99, not just averages, since averages hide the worst experiences), throughput, error rate.
+2. **Isolate where in the stack the time is actually going** before diagnosing anything: frontend rendering, network/API call, or database? Distributed tracing (Part 9) tells you *which* service in a multi-service call chain is actually slow — don't assume it's the one that happens to be throwing an error.
+3. **Backend-specific diagnosis**:
+   - **Profilers** (JVisualVM, YourKit, JProfiler for Java) to see where CPU time is actually spent inside the application.
+   - **Heap dumps** for memory-related slowness (excessive GC pauses from memory pressure).
+   - **Thread dumps** for concurrency issues — deadlocks, threads stuck waiting on a lock or a slow downstream call.
+   - **Slow query logs / `EXPLAIN` plans** for database-side bottlenecks (Part 4) — almost always the first place to look for a "the API got slow" report.
+   - Frontend-specific diagnosis (Core Web Vitals, DevTools, bundle size, React Profiler) is in `General_Frontend_Engineering_QA.md`.
+4. **Reproduce the issue in a controlled environment** if possible, rather than debugging blind against production — confirms your hypothesis and lets you test a fix safely.
+5. **Fix the highest-leverage cause first**, not every possible inefficiency — the common real-world culprits, roughly in order of how often they're the actual answer: N+1 queries (`Spring_Java_QA.md` Part 12), missing database indexes, unbounded result sets without pagination, synchronous blocking calls that should have been async, chatty APIs (many small round trips where one batched call would do).
+6. **Verify the fix against the baseline from step 1, and keep monitoring** — a fix that isn't measured against a before/after baseline is a guess, not a verified improvement.
+
+```bash
+# thread dump — the go-to for "requests are hanging, CPU isn't even high"
+jstack <pid> > threads.txt
+grep -A 5 "BLOCKED" threads.txt   # threads stuck waiting on a lock or a slow call
+```
+```java
+// pagination instead of an unbounded result set
+@GetMapping("/accounts")
+Page<AccountResponse> listAccounts(@RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "20") int size) {
+    return accountRepository.findAll(PageRequest.of(page, size)).map(AccountResponse::from);
+}
+```
+
+**Q: How would you roll out a risky change safely?**
+A: Feature flags to decouple deploy from release (ship the code dark, turn it on separately), canary or blue-green deployment to expose the change to a small slice of traffic first, a gradual rollout percentage, and a fast kill switch to turn it off without a redeploy if something goes wrong.
+
+```java
+@ConditionalOnProperty("feature.new-pricing-engine.enabled") // code shipped dark, flipped on separately
+@Service
+class NewPricingEngine implements PricingEngine { ... }
+```
+
+**Q: How do you handle a memory leak?**
+A: Start with a heap dump comparison over time to see what's growing unbounded. Common backend/Java causes: static collections that grow without bound, unclosed resources (connections, streams), or listener registrations that are never deregistered. (Frontend causes — uncleaned event listeners/intervals, closures holding large objects — are in `General_Frontend_Engineering_QA.md`.)
+
+```java
+// classic Java leak — a static collection nothing ever removes from
+static final Map<String, Session> sessions = new HashMap<>(); // grows forever, never evicted
+
+// fixed — bounded, or backed by something with expiry (Caffeine, Redis with TTL)
+static final Cache<String, Session> sessions = Caffeine.newBuilder()
+    .expireAfterAccess(Duration.ofMinutes(30)).maximumSize(10_000).build();
+```
+
+**Q: How do you achieve zero-downtime deployment?**
+A: Rolling updates with readiness probes gating when new instances receive traffic (`Spring_Java_QA.md` Part 18), and — often the harder part — making database migrations backward-compatible during the rollout window, so old and new application code can both run correctly against the schema at the same time. Commonly called the **expand/contract pattern**: add the new column/table first, deploy code that can use it, then remove the old one in a later, separate step — never rename or drop a column in the same deploy that starts using its replacement.
+
+**Q: How do you prevent a cache stampede?** (many clients hitting a cold cache simultaneously and all missing at once, hammering the DB)
+A: A lock or "single-flight" pattern so only one request actually goes to the DB on a cache miss while others wait for that result; staggering TTLs with a bit of random jitter so cached items don't all expire at exactly the same moment; and refreshing hot cache entries in the background just before they expire, rather than waiting for a hard expiry.
+
+```java
+// single-flight — only the first request on a miss hits the DB, others wait on the same future
+private final Map<Long, CompletableFuture<Account>> inFlight = new ConcurrentHashMap<>();
+
+CompletableFuture<Account> getAccount(Long id) {
+    return inFlight.computeIfAbsent(id, key ->
+        CompletableFuture.supplyAsync(() -> accountRepository.findById(key).orElseThrow())
+            .whenComplete((r, e) -> inFlight.remove(key)));
+}
+```
+
+---
+
+## Part 18: Open-Ended System Design Prompts
+
+Beyond the banking-specific scenarios in `Banking_Wealth_Domain_Playbook.md`, this is the *style* of open-ended, whole-stack prompt that shows up in full-stack loops at product-oriented companies — worth recognizing the shape even if OCBC's technical round leans more conversational/conceptual than this (`Master_Question_Checklist.md`).
+
+- *"Design a REST API for a multi-tenant SaaS application — how do you handle tenant isolation at the data layer?"* The strong-signal move is addressing tenant isolation (separate schemas vs. a shared table with a `tenant_id` column and row-level security) before diving into endpoint design — interviewers are checking whether you reach for the hard part first.
+
+  ```sql
+  -- shared-table approach — every query MUST filter by tenant, or data leaks across tenants
+  SELECT * FROM accounts WHERE tenant_id = :currentTenantId AND account_number = :number;
+  -- row-level security makes this the DB's job, not every developer's job to remember:
+  CREATE POLICY tenant_isolation ON accounts USING (tenant_id = current_setting('app.tenant_id')::uuid);
+  ```
+
+- *"Design a real-time collaborative editing feature — walk through every layer of the stack."* The strong-signal move is naming the concurrency problem immediately (two users editing simultaneously creates conflicts a simple REST endpoint can't resolve cleanly) rather than starting with UI details.
+- *"How would you test a multi-step API flow where a later call can fail after an earlier one already mutated state?"* This is really the Saga/compensating-transaction question (`Banking_Wealth_Domain_Playbook.md` Part 1) wearing a testing hat — the strong answer explicitly raises what happens to already-mutated state on partial failure, not just "I'd write a test for each call."
+
+You don't need full solutions memorized for these — the point is recognizing the shape (find the hard part first, state it explicitly, then build outward) if something like this comes up.
+
+---
+
+## Part 19: Software Development Life Cycle
+
+**Q: Describe the software development life cycle (SDLC).** *(confirmed real OCBC question)*
+A: The standard phases: **Requirements gathering** → **Design** (architecture, data model) → **Implementation** (coding) → **Testing** (unit, integration, UAT) → **Deployment** → **Maintenance** (monitoring, bug fixes, iteration). Worth adding: most real teams run this iteratively via Agile/Scrum rather than a single linear waterfall pass — short sprints cycling through design → build → test → review, with continuous integration/deployment blurring the line between "testing," "deployment," and "maintenance" rather than treating them as strictly sequential gates.
+
+```
+Waterfall: Requirements → Design → Build → Test → Deploy → Maintain   (once, in order)
+Agile:     [ Requirements → Design → Build → Test → Review ]  ← repeated every 1-2 week sprint,
+           with CI/CD blurring "test," "deploy," and "maintain" into one continuous pipeline
+```
+
+---
+
+## Part 20: Security Fundamentals (Bank-Relevant)
+
+Framework-agnostic security — the general concepts, worth taking seriously given the employer. (Spring-specific security — the filter chain, `@PreAuthorize` — is in `Spring_Java_QA.md` Part 17.)
+
+**Q: What are the OWASP Top 10, and why would it matter for this role?**
+A: OWASP maintains the industry-standard list of the most critical web application security risks. It was significantly updated in late 2025 (first major revision since 2021) — current list, in order: **Broken Access Control, Security Misconfiguration, Software Supply Chain Failures, Cryptographic Failures, Injection, Insecure Design, Authentication Failures, Software/Data Integrity Failures, Security Logging and Alerting Failures, and Mishandling of Exceptional Conditions.** For a bank, these aren't abstract — Broken Access Control is directly "can customer A see customer B's account," and Cryptographic Failures is directly "is money-movement data properly encrypted at rest and in transit." You don't need to recite the list verbatim, but recognizing a couple of these by name if security comes up will land well.
+
+**Q: What's Cross-Site Scripting (XSS)?**
+A: An attacker injects malicious script into a page that other users view — commonly through an unsanitized input field that gets rendered back into the page. Defense: escape/encode output based on context. React actually escapes text content by default when rendering — the real risk shows up specifically when that protection is deliberately bypassed (e.g., `dangerouslySetInnerHTML`, see `General_Frontend_Engineering_QA.md`).
+
+```jsx
+<div>{userComment}</div>                              // safe — React escapes this automatically
+<div dangerouslySetInnerHTML={{__html: userComment}}/> // the escape hatch — XSS risk lands right here
+```
+
+**Q: What's Cross-Site Request Forgery (CSRF)?**
+A: An attacker tricks a logged-in user's browser into submitting an unwanted request to your app, relying on the browser automatically attaching cookies to same-site requests. Defense: CSRF tokens (a random value tied to the session that must accompany state-changing requests) or the `SameSite` cookie attribute, which stops the cookie being sent on cross-site requests in the first place.
+
+```
+Set-Cookie: sessionId=abc123; SameSite=Strict; Secure
+```
+```html
+<!-- a malicious page the victim visits while logged into your bank -->
+<form action="https://bank.com/accounts/1/transfer" method="POST">
+  <input name="toAccountId" value="999"><input name="amount" value="10000">
+</form>
+<script>document.forms[0].submit()</script>
+<!-- SameSite=Strict stops the browser from attaching the bank's session cookie to this cross-site POST -->
+```
+
+**Q: What's SQL Injection, and how do you prevent it?**
+A: Untrusted input gets concatenated directly into a SQL query, letting an attacker manipulate the query itself. Prevention: parameterized queries / prepared statements — which is what Spring Data JPA gives you by default when used correctly. Never string-concatenate user input into a query.
+
+```java
+// vulnerable — user input becomes part of the query itself
+String sql = "SELECT * FROM accounts WHERE account_number = '" + input + "'";
+// input = "' OR '1'='1" turns this into "... WHERE account_number = '' OR '1'='1'" — returns every row
+
+// safe — parameterized, the input is always treated as data, never as SQL syntax
+accountRepository.findByAccountNumber(input); // Spring Data JPA generates a PreparedStatement under the hood
+```
+
+**Q: What's CORS, and why does it exist?**
+A: Cross-Origin Resource Sharing — a *browser-enforced* rule that blocks a web page from calling a different origin (domain/port/protocol) than the one that served it, unless the server explicitly allows it via response headers. Worth knowing it's a browser protection, not a server-side security control on its own — the server still needs its own authorization checks regardless of CORS configuration. Note this is genuinely different from the Same-Origin Policy it relaxes — see `General_Frontend_Engineering_QA.md` Part 6 for that distinction.
+
+```
+Access-Control-Allow-Origin: https://app.bank.com
+Access-Control-Allow-Methods: GET, POST
+```
+
+**Q: How do you securely store passwords?**
+A: Never plaintext, and never with reversible encryption. Hash with a slow, salted, purpose-built algorithm — bcrypt, scrypt, or Argon2 — not a fast general-purpose hash like plain SHA-256, which is fast enough to make large-scale brute-forcing practical.
+
+```java
+// storing
+String hashed = new BCryptPasswordEncoder().encode(rawPassword); // salt is generated and embedded automatically
+
+// verifying
+boolean matches = new BCryptPasswordEncoder().matches(rawPassword, hashed);
+```
+
+---
+
+## Part 21: CI/CD & Git Basics
+
+Named in the JD (Jenkins, Bitbucket).
+
+**Q: CI vs. CD — what's the actual difference?**
+A: **Continuous Integration** — automatically building and testing every change (typically on every push/PR) to catch integration problems early, instead of discovering them when merging large batches of work later. **Continuous Delivery/Deployment** — automatically pushing changes that pass CI toward production: up to a manual approval gate (delivery), or fully automatically (deployment).
+
+**Q: What does a typical Jenkins pipeline actually do?**
+A: Triggered by a code push: pull the code → build → run automated tests → run static analysis/security scans → package a deployable artifact (often a Docker image) → deploy to an environment, usually gated behind manual approval for production. Defined as code (a `Jenkinsfile`), version-controlled alongside the application itself.
+
+```groovy
+// Jenkinsfile, the shape of it — bank-demo's own .github/workflows/ci.yml runs the same
+// three real steps (checkout, mvn test, build), just on GitHub Actions instead of Jenkins
+pipeline {
+    stages {
+        stage('Build')  { steps { sh 'mvn -B clean package -DskipTests' } }
+        stage('Test')   { steps { sh 'mvn -B test' } }
+        stage('Deploy') { steps { sh 'docker build -t bank-demo . && docker push ...' } }
+    }
+}
+```
+
+**Q: Merge vs. rebase — what's the practical difference?**
+A: Merge creates a new commit joining two branch histories — preserves exactly what happened, including the branching, but produces a messier, non-linear history. Rebase replays your commits on top of the target branch, producing a clean, linear history — but it rewrites commit hashes, which is exactly why the standard guidance is "never rebase a branch other people are already working on."
+
+```bash
+git merge main   # creates a new merge commit — history shows the branch really happened
+git rebase main  # replays your commits on top of main — linear history, but new commit hashes
+```
+
+**Q: How do you resolve a merge conflict?**
+A: Git marks conflicting sections in the file with conflict markers; you manually decide which changes to keep (or combine both), remove the markers, then stage and commit the resolved file.
+
+```
+<<<<<<< HEAD
+BigDecimal balance = BigDecimal.ZERO;
+=======
+BigDecimal balance = initialBalance;
+>>>>>>> feature/initial-balance
+```
+```bash
+# after manually picking (or combining) the right version and removing the markers above:
+git add Account.java
+git commit
+```

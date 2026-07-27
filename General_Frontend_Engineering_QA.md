@@ -1,7 +1,7 @@
 # General Frontend Engineering Interview Q&A
 For: OCBC Full Stack Developer Technical Interview
 
-Companion to `General_Backend_Engineering_QA.md` — same idea, other side of the stack. `ReactJS_Interview_QA.md` is React-specific; this is the layer underneath it, true regardless of whether the framework in the room is React, Vue, Angular, or nothing at all. Same format: question, tight answer, code example. Examples are plain HTML/CSS/JS unless a concept genuinely needs a framework to illustrate.
+Companion to `General_Backend_Engineering_QA.md` — same idea, other side of the stack. `ReactJS_QA.md` is React-specific; this is the layer underneath it, true regardless of whether the framework in the room is React, Vue, Angular, or nothing at all. Same format: question, tight answer, code example. Examples are plain HTML/CSS/JS unless a concept genuinely needs a framework to illustrate.
 
 ---
 
@@ -19,6 +19,9 @@ Companion to `General_Backend_Engineering_QA.md` — same idea, other side of th
 - Part 11: Rendering Strategies & Deployment
 - Part 12: Frontend Architecture & Design Patterns
 - Part 13: Quick-Fire Round
+- Part 14: Core JavaScript Fundamentals
+- Part 15: HTML5 & CSS3 Fundamentals
+- Part 16: Debugging Frontend Issues
 
 ---
 
@@ -302,6 +305,20 @@ expect(await screen.findByText('100')).toBeInTheDocument()
 **Q: What's visual regression testing?**
 A: Automatically screenshotting components/pages and diffing against a stored baseline image, flagging *unintended* visual changes (a CSS change that broke a layout somewhere nobody thought to check) that functional tests wouldn't catch at all, since functional tests check behavior, not appearance.
 
+**Q: What would you use to test a React app, named correctly rather than "some testing library"?**
+A: Jest as the test runner and assertion library, React Testing Library (RTL) for rendering components and interacting with them the way a user actually would — querying by visible text or accessibility role rather than internal implementation details. RTL's philosophy specifically discourages testing implementation details, since tests written that way survive refactors better than ones coupled to internal component state.
+
+```jsx
+import { render, screen, fireEvent } from '@testing-library/react'
+
+test('deposit button triggers a deposit', () => {
+  render(<AccountRow account={{ id: 1, balance: 100 }} />)
+  fireEvent.change(screen.getByPlaceholderText('amount'), { target: { value: '50' } })
+  fireEvent.click(screen.getByText('Deposit'))
+  // queries by what a USER sees (placeholder text, button label), not internal component state
+})
+```
+
 ---
 
 ## Part 11: Rendering Strategies & Deployment
@@ -354,3 +371,186 @@ Short, direct answers, under 15 seconds each:
 - **What's a Progressive Web App (PWA), in one sentence?** A web app that can be installed, work offline (via a service worker caching assets/responses), and feel closer to a native app, while still being a normal website underneath.
 - **What's the difference between `defer` and `async` on a `<script>` tag?** Both let HTML parsing continue while the script downloads. `defer` — executes after parsing finishes, in document order. `async` — executes immediately once downloaded, whenever that is, potentially out of order relative to other scripts.
 - **What's a service worker?** A script the browser runs in the background, separate from the page, that can intercept network requests (enabling offline support and custom caching) and receive push notifications — the technology underneath most PWA offline behavior.
+
+---
+
+## Part 14: Core JavaScript Fundamentals
+
+The JD lists JavaScript separately from ReactJS — worth having the language itself solid, not just the framework.
+
+**Q: What's a closure?**
+A: A function that retains access to variables from its enclosing scope even after that outer function has finished executing. Classic example: a counter factory function that returns an increment function, which keeps its own private running count via closure.
+
+```js
+function makeCounter() {
+  let count = 0                       // private — no way to reach this from outside
+  return () => ++count                // this inner function "closes over" count
+}
+const counter = makeCounter()
+counter() // 1
+counter() // 2 — count persisted even though makeCounter() already returned
+```
+
+**Q: How does the JavaScript event loop handle async code?**
+A: JS is single-threaded but non-blocking. Synchronous code runs on the call stack; async operations (timers, network calls, promises) are handed off to the runtime, and their callbacks are queued to run once the call stack is empty. Promise callbacks (microtasks) are drained *before* the next macrotask (like a `setTimeout` callback) — the classic interview gotcha is explaining why `Promise.resolve().then(fn)` runs before `setTimeout(fn, 0)`.
+
+```js
+console.log('1')
+setTimeout(() => console.log('2'), 0) // macrotask — queued for later
+Promise.resolve().then(() => console.log('3')) // microtask — runs before the next macrotask
+console.log('4')
+// output: 1, 4, 3, 2 — not 1, 2, 3, 4, even with a 0ms timeout
+```
+
+**Q: `var` vs. `let` vs. `const`?**
+A: `var` is function-scoped, hoisted and initialized as `undefined`. `let`/`const` are block-scoped, hoisted but not initialized (accessing before declaration throws — the "temporal dead zone"). `const` additionally locks the *binding* from reassignment — it doesn't make the value deeply immutable, you can still mutate an object's properties.
+
+```js
+if (true) { var x = 1 }
+console.log(x) // 1 — var leaked out of the block, function-scoped not block-scoped
+
+const account = { balance: 100 }
+account.balance = 150 // fine — mutating the object's property, not reassigning the binding
+// account = {}       // TypeError — can't reassign a const binding
+```
+
+**Q: `this` binding — and why do arrow functions behave differently?**
+A: In a regular function, `this` depends on *how* the function is called (implicit binding from the caller, or explicit via `call`/`apply`/`bind`). Arrow functions have no `this` of their own — they inherit it lexically from the enclosing scope at the point they're defined, which is exactly why they're the default choice for callbacks and event handlers: no more "why is `this` undefined inside my callback."
+
+```js
+class AccountWidget {
+  balance = 100
+  // regular function — `this` depends on how logBalance is CALLED, breaks as a callback
+  logBalance() { console.log(this.balance) }
+  // arrow function — `this` is captured lexically from the class, safe to pass as a callback
+  logBalanceArrow = () => console.log(this.balance)
+}
+const w = new AccountWidget()
+setTimeout(w.logBalance, 100)      // undefined — `this` is lost, called as a plain function
+setTimeout(w.logBalanceArrow, 100) // 100 — arrow function kept `this` bound to the instance
+```
+
+**Q: Promises vs. async/await?**
+A: A Promise represents the eventual result of an async operation (pending → fulfilled/rejected). `async/await` is syntactic sugar over promises letting you write async code that reads top-to-bottom like synchronous code, avoiding deeply nested `.then()` chains.
+
+```js
+// promise chain
+fetch('/accounts').then(res => res.json()).then(accounts => console.log(accounts)).catch(err => console.error(err))
+
+// same thing, async/await — reads top to bottom like sync code
+async function loadAccounts() {
+  try {
+    const res = await fetch('/accounts')
+    const accounts = await res.json()
+    console.log(accounts)
+  } catch (err) { console.error(err) }
+}
+```
+
+**Q: Debounce vs. throttle?**
+A: **Debounce** delays execution until a pause in events — e.g., wait until the user stops typing for 300ms before firing a search request. **Throttle** executes at most once per fixed interval regardless of event frequency — e.g., a scroll handler that runs at most every 100ms. Different problems: debounce waits for quiet, throttle enforces a steady ceiling.
+
+```js
+function debounce(fn, delay) {
+  let timer
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay) }
+}
+const search = debounce((query) => fetchResults(query), 300) // fires once, 300ms after typing stops
+
+function throttle(fn, interval) {
+  let last = 0
+  return (...args) => { const now = Date.now(); if (now - last >= interval) { last = now; fn(...args) } }
+}
+const onScroll = throttle(() => updatePosition(), 100) // fires at most once every 100ms
+```
+
+---
+
+## Part 15: HTML5 & CSS3 Fundamentals
+
+Also named explicitly and separately in the JD.
+
+**Q: What's the CSS box model?**
+A: Every element is content → padding → border → margin, from the inside out. `box-sizing: border-box` (the common modern default) makes width/height include padding and border rather than adding them on top of a specified width — avoids a lot of layout-math surprises.
+
+```css
+.card {
+  box-sizing: border-box; /* width includes padding+border, doesn't add on top of it */
+  width: 200px;
+  padding: 16px;
+  border: 1px solid #ccc; /* WITHOUT border-box, real rendered width would be 200+32+2 = 234px */
+}
+```
+
+**Q: Flexbox vs. Grid — when do you reach for each?**
+A: Flexbox is one-dimensional — ideal for laying items out in a single row or column (navbars, button groups, centering content). Grid is two-dimensional — ideal when you need to control rows and columns together (overall page layout, card grids). Commonly combined: Grid for page structure, Flexbox for the components inside it.
+
+```css
+.navbar { display: flex; justify-content: space-between; align-items: center; } /* one dimension: a row */
+
+.dashboard {
+  display: grid;
+  grid-template-columns: 200px 1fr; /* two dimensions: a fixed sidebar column + a flexible content column */
+  grid-template-rows: 60px 1fr;
+}
+```
+
+**Q: How do media queries and responsive design work?**
+A: A layout that adapts to different screen sizes, typically via a fluid layout plus CSS media queries (`@media (max-width: 768px) { ... }`) applying different styles based on viewport. Mobile-first is the standard modern approach: write base styles for small screens, then layer on complexity for larger screens with `min-width` queries, rather than starting desktop-first and squeezing down. (Container queries — responding to a component's own size instead of the viewport — are in Part 8.)
+
+```css
+.account-table { display: block; }         /* base — mobile styles, no query needed */
+@media (min-width: 768px) {                /* mobile-first — layer on complexity for bigger screens */
+  .account-table { display: table; }
+}
+```
+
+**Q: What's semantic HTML, and why does it matter?**
+A: Using elements for their actual meaning (`<nav>`, `<article>`, `<button>`) instead of generic `<div>`s for everything. Matters for accessibility (screen readers rely on semantic structure to navigate a page, Part 7) and for SEO (search engines weight semantic structure when parsing a page).
+
+```html
+<!-- non-semantic — a screen reader has no idea any of this is meaningful -->
+<div class="nav"><div class="link">Accounts</div></div>
+
+<!-- semantic — a screen reader announces "navigation", a button is keyboard-operable for free -->
+<nav><button>Accounts</button></nav>
+```
+
+---
+
+## Part 16: Debugging Frontend Issues
+
+**Q: What if a page suddenly shows a blank screen or crashes for users?**
+1. **Contain the blast radius first**: React **error boundaries** (`componentDidCatch` / `static getDerivedStateFromError` — still one of the few remaining reasons to write a class component) catch JavaScript errors in a component subtree and render a fallback UI instead of letting one broken component take down the entire page. Wrapping major page sections in their own boundaries means one widget failing doesn't blank-screen the whole app.
+2. **Check the browser console and Network tab first** — most "blank screen" bugs surface as a clear JS error in the console (a common one: trying to render before an async value has loaded, or a malformed API response the component didn't expect) or a failed critical asset/API request in the Network tab.
+3. **Log to an error-tracking service in production** (Sentry or similar) with source maps enabled, so a minified production stack trace still points to readable source lines — without this, debugging a report of "it broke for a user" from just a minified stack trace is painful.
+4. **Reproduce deliberately**: was there a recent deploy? Is it browser-specific? Is it tied to a particular data shape (e.g., a null field the UI didn't expect) rather than every user? Narrowing this down fast is most of the actual debugging work.
+5. **Design for graceful degradation on the data-fetching path too**, not just render errors: loading skeletons instead of blank space, retries with backoff for transient failures, and a clear inline error state with a recovery action (e.g., "retry") rather than a dead end.
+
+```jsx
+// an error boundary around one section, not the whole app
+class AccountsSectionBoundary extends React.Component {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(error, info) { logToSentry(error, info) }
+  render() {
+    if (this.state.hasError) return <p>Accounts unavailable right now. <button onClick={() => this.setState({ hasError: false })}>Retry</button></p>
+    return this.props.children
+  }
+}
+// usage: <AccountsSectionBoundary><AccountList /></AccountsSectionBoundary>
+// AccountList crashing no longer blanks the whole page — just that section
+```
+
+**Q: How do you diagnose "the page loaded fine but feels laggy" or a general frontend performance complaint?**
+A: **Chrome DevTools Performance tab and Network waterfall** — shows exactly what's blocking the page: a large blocking script, a slow API call, an unoptimized image. **Bundle size analysis** — an oversized JS bundle delays interactivity even if the server responded instantly. **React Profiler** — for "loaded fine but feels laggy while using it," this usually points to unnecessary re-renders rather than a network issue (missing `React.memo`, an unstable prop reference recreated every render). Core Web Vitals (Part 3) are the metrics; these are the tools you'd actually open to go find the cause.
+
+**Q: How do you handle a memory leak on the frontend specifically?**
+A: Start with a heap snapshot comparison in DevTools over time to see what's growing unbounded. The classic causes: event listeners or intervals registered in `useEffect` but never cleaned up in its return function (the cleanup-function footgun — every `addEventListener`/`setInterval` inside an effect needs a matching teardown), or closures holding references to large objects/DOM nodes longer than intended, keeping them from being garbage collected even after the component unmounts.
+
+```jsx
+useEffect(() => {
+  const timer = setInterval(() => refresh(accountId), 5000)
+  return () => clearInterval(timer) // without this, a new timer stacks on every re-render, none ever cleared
+}, [accountId])
+```
