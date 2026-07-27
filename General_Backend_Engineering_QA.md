@@ -46,7 +46,10 @@ GET    /accounts/1          -> read account 1
 POST   /accounts            -> create a new account
 PUT    /accounts/1          -> replace/update account 1
 DELETE /accounts/1          -> delete account 1
--- the URL names the resource, the HTTP method names the action, matches bank-demo's AccountController
+-- the URL names the resource, the HTTP method names the action
+-- bank-demo's own AccountController deviates from this a bit: it exposes create/deposit/withdraw/transfer
+-- as POST-only actions (e.g. POST /accounts/1/deposit), not PUT/DELETE — worth naming as a real-world
+-- example of REST conventions bent for clarity, not a literal match to the diagram above
 ```
 
 **Q: What's JSON, and why is it the default over XML today?**
@@ -116,7 +119,7 @@ Client                     Server
 A: Client and server negotiate a protocol version and cipher suite, the server presents its certificate (proving identity, signed by a trusted CA), and both sides derive a shared symmetric session key — used for the actual encrypted traffic afterward, since symmetric encryption is far cheaper than asymmetric per-byte. This is why HTTPS has extra latency on a fresh connection compared to HTTP — this whole exchange happens before the TCP-level request even begins, though TLS 1.3 cut this down to one round trip (down from two in TLS 1.2).
 
 **Q: HTTP/1.1 vs. HTTP/2 vs. HTTP/3 — what actually changed?**
-A: HTTP/1.1 — one request in flight per TCP connection at a time (mitigated in practice by opening multiple connections, or pipelining, which has its own problems). HTTP/2 — multiplexes many requests over a *single* TCP connection (no more head-of-line blocking at the HTTP layer), plus header compression and server push. HTTP/3 — replaces TCP entirely with QUIC (built on UDP), removing head-of-line blocking at the *transport* layer too — a single dropped packet no longer stalls every other in-flight request on the connection.
+A: HTTP/1.1 — one request in flight per TCP connection at a time (mitigated in practice by opening multiple connections, or pipelining, which has its own problems). HTTP/2 — multiplexes many requests over a *single* TCP connection (no more head-of-line blocking at the HTTP layer), plus header compression and server push (the push part is spec-real but practically dead — Chrome/Firefox both dropped support around 2022; don't lean on it as a current technique). HTTP/3 — replaces TCP entirely with QUIC (built on UDP), removing head-of-line blocking at the *transport* layer too — a single dropped packet no longer stalls every other in-flight request on the connection.
 
 **Q: What does a DNS lookup actually involve?**
 A: Browser/OS cache check first → if miss, query a recursive resolver → which walks the hierarchy (root servers → TLD servers → the domain's authoritative nameserver) → returns an IP, cached at every level along the way per its TTL. This is why a very low DNS TTL is a common trick for fast failover (point traffic elsewhere quickly), at the cost of every client re-resolving more often.
@@ -176,6 +179,9 @@ A: Clocks on different machines drift and are never perfectly synchronized, so "
 ---
 
 ## Part 4: Database Internals
+
+**Q: What are ACID and transaction isolation levels — how do they relate to what's here?**
+A: ACID (Atomicity, Consistency, Isolation, Durability) is the correctness contract a database transaction gives you; isolation levels (`READ_UNCOMMITTED` → `READ_COMMITTED` → `REPEATABLE_READ` → `SERIALIZABLE`) are the tunable *strength* of the "I" — how much of another transaction's concurrent changes you're allowed to see. Full breakdown with Spring's `@Transactional(isolation = ...)` syntax and a bank-relevant example is in `Spring_Java_QA.md` Part 13; the rest of this section is what sits underneath a transaction (indexing, pooling, replication) rather than the transaction guarantee itself.
 
 **Q: How does a B-tree index actually make lookups fast?**
 A: A B-tree (or the B+tree variant most real databases use) keeps data sorted in a balanced tree structure with a high branching factor, so finding any row takes `O(log n)` disk-page reads instead of scanning every row (`O(n)`). Each node holds many keys (not just 2, like a binary tree) specifically to keep the tree shallow, since each level down is a disk seek — minimizing tree depth is the entire point.
@@ -552,7 +558,7 @@ Short, direct answers, under 15 seconds each:
 - **What's a load balancer's job, in one sentence?** Distribute incoming requests across multiple backend instances so no single instance is overwhelmed, and route around instances that fail health checks.
 - **What's the difference between horizontal and vertical scaling, one more time, generically?** Vertical — bigger machine, hard ceiling. Horizontal — more machines, needs the app to be stateless (or state externalized) to actually work.
 - **What's a bloom filter, and what's it for?** A probabilistic set membership check — can say "definitely not in the set" with certainty, or "possibly in the set" (with a tunable false-positive rate), using far less memory than storing the actual set. Common use: checking "might this key exist in the DB" before paying for an actual disk read.
-- **What's the difference between a monolith, an SOA, and microservices?** Monolith — one deployable unit. SOA — a handful of larger, often shared-infrastructure services. Microservices — many small, independently deployable services, each owning its own data — the modern end of the same spectrum SOA started.
+- **What's the difference between a monolith, an SOA, and microservices?** Monolith — one deployable unit. SOA — a handful of larger, often shared-infrastructure services. Microservices — many small, independently deployable services, each owning its own data — the modern end of the same spectrum SOA started. (Full monolith-vs-microservices tradeoffs, API Gateway, service discovery: Part 16 below.)
 - **What's graceful degradation?** Continuing to serve a reduced/simplified experience when a dependency fails, instead of a hard error — e.g., showing a cached price with a "may be stale" note instead of a blank screen.
 
 ---
@@ -644,7 +650,7 @@ In rough order of "do this first, it's cheap" to "do this last, it's expensive":
 2. **Query optimization** — check execution plans (`EXPLAIN`), eliminate unnecessary joins, avoid `SELECT *`.
 3. **Connection pooling** — make sure you're not exhausting DB connections under load (Part 4).
 4. **Read replicas** — for read-heavy workloads, route reads to replicas and keep writes on the primary (Part 4).
-5. **Caching** (Part 8) in front of the DB for hot data — trades a bit of staleness for a lot of load reduction.
+5. **Caching** (Part 6) in front of the DB for hot data — trades a bit of staleness for a lot of load reduction.
 6. **Denormalization** — duplicate some data to avoid expensive joins at read time (Part 4).
 7. **Sharding/partitioning** — split data across multiple database instances by some key (e.g., customer ID) — solves scale, but adds meaningful complexity (cross-shard queries, rebalancing when a shard gets too big). Bring this up as an option, but be clear it's not step one.
 

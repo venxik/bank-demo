@@ -33,14 +33,18 @@ A: An in-memory, lightweight representation of the real DOM. When state changes,
 ```
 
 **Q: JSX — what is it, actually?**
-A: Syntactic sugar that compiles down to `React.createElement(...)` calls. It looks like HTML embedded in JavaScript, but it's really just a more readable way to write the function calls that build the virtual DOM tree.
+A: Syntactic sugar for a plain function call that builds the virtual DOM tree — it looks like HTML embedded in JavaScript, but it's really just a more readable way to write that call. Historically (React ≤16) it compiled to `React.createElement(...)`; since React 17's "automatic runtime" — what `bank-demo`'s own `@vitejs/plugin-react` uses by default, and what this project's React 19 actually runs — it compiles to `_jsx(...)` imported straight from `react/jsx-runtime` instead, specifically so you no longer need `import React from 'react'` in every file just to use JSX. The mental model (JSX → a function call → a virtual DOM node) is unchanged; only which function gets called under the hood is different.
 
 ```jsx
 // what you write
 const el = <h1 className="title">bank-demo</h1>
 
-// what it compiles to
+// classic runtime (React <=16, or explicit opt-out) — needs React in scope
 const el = React.createElement('h1', { className: 'title' }, 'bank-demo')
+
+// automatic runtime (React 17+, this project's default) — compiler injects this import itself
+import { jsx as _jsx } from 'react/jsx-runtime'
+const el = _jsx('h1', { className: 'title', children: 'bank-demo' })
 ```
 
 ---
@@ -70,8 +74,10 @@ A: Returns a `[value, setter]` pair. Common mistake: mutating state directly (`s
 ```jsx
 const [accounts, setAccounts] = useState([])
 
-accounts.push(newAccount)     // WRONG — same reference, React sees no change, no re-render
-setAccounts([...accounts, newAccount]) // correct — new array reference, triggers re-render
+accounts.push(newAccount)      // mutates in place...
+setAccounts(accounts)          // ...then hands back the SAME reference — React bails out, no re-render
+
+setAccounts([...accounts, newAccount]) // correct — a new array reference, triggers re-render
 ```
 
 **Q: `useEffect` — what does the dependency array do, and what's the classic footgun?**
@@ -183,12 +189,16 @@ function good(state, action) {
 A: The official, opinionated toolset wrapping Redux's core APIs to eliminate most boilerplate (hand-written action types/creators, manual immutable updates with spread operators). `createSlice` generates actions and a reducer together, and lets you write reducer logic that *looks* mutating but is safely converted to an immutable update under the hood (via Immer).
 
 ```js
-// bank-demo's actual accountsSlice.js
+// bank-demo's actual accountsSlice.js, verbatim
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 export const fetchAccounts = createAsyncThunk('accounts/fetch', async () => {
   const res = await fetch('/accounts')
-  return res.json()
+  const body = await res.json().catch(() => null)
+  if (!res.ok) {
+    throw new Error(body?.message ?? `Request failed (${res.status})`)
+  }
+  return body
 })
 
 const accountsSlice = createSlice({
@@ -196,9 +206,14 @@ const accountsSlice = createSlice({
   initialState: { items: [], error: null },
   reducers: {},
   extraReducers: (builder) => {
-    builder.addCase(fetchAccounts.fulfilled, (state, action) => {
-      state.items = action.payload // looks like a mutation — Immer converts it to an immutable update
-    })
+    builder
+      .addCase(fetchAccounts.fulfilled, (state, action) => {
+        state.items = action.payload // looks like a mutation — Immer converts it to an immutable update
+        state.error = null
+      })
+      .addCase(fetchAccounts.rejected, (state, action) => {
+        state.error = action.error.message // the .rejected case is what actually uses the `error` field
+      })
   },
 })
 ```
@@ -280,6 +295,26 @@ function AccountList() {
   return <table>{/* ... */}</table>
 }
 ```
+
+**Q: What's an error boundary, and why is it still one of the few reasons to write a class component?**
+A: A component that catches JavaScript errors thrown anywhere in its child subtree during rendering and renders a fallback UI instead of letting the error crash the whole page. It's implemented via two class-only lifecycle APIs — `static getDerivedStateFromError` (compute the fallback state) and `componentDidCatch` (side effect: log the error) — hooks have no equivalent, which is why this is one of the last remaining reasons to write a class component in modern React. Wrapping independent page sections in their own boundary means one section crashing doesn't blank-screen the rest of the app (the general "contain the blast radius" principle covered framework-agnostically in `General_Frontend_Engineering_QA.md` Part 16).
+
+```jsx
+// an error boundary around one section, not the whole app
+class AccountsSectionBoundary extends React.Component {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(error, info) { logToSentry(error, info) }
+  render() {
+    if (this.state.hasError) return <p>Accounts unavailable right now. <button onClick={() => this.setState({ hasError: false })}>Retry</button></p>
+    return this.props.children
+  }
+}
+// usage: <AccountsSectionBoundary><AccountList /></AccountsSectionBoundary>
+// AccountList crashing no longer blanks the whole page — just that section
+```
+
+Worth knowing the limits cold: error boundaries catch render-time errors in descendants, but **not** errors inside event handlers (those need a plain `try`/`catch`), not errors in the boundary component itself, and not async errors (a rejected promise in a `useEffect` won't be caught — that needs its own `.catch`/error state).
 
 ---
 

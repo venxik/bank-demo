@@ -521,36 +521,22 @@ A: Using elements for their actual meaning (`<nav>`, `<article>`, `<button>`) in
 ## Part 16: Debugging Frontend Issues
 
 **Q: What if a page suddenly shows a blank screen or crashes for users?**
-1. **Contain the blast radius first**: React **error boundaries** (`componentDidCatch` / `static getDerivedStateFromError` — still one of the few remaining reasons to write a class component) catch JavaScript errors in a component subtree and render a fallback UI instead of letting one broken component take down the entire page. Wrapping major page sections in their own boundaries means one widget failing doesn't blank-screen the whole app.
+1. **Contain the blast radius first**: every mainstream framework has some form of "catch a render error in a subtree, show a fallback instead of taking down the whole page" — React calls it an **error boundary** (`ReactJS_QA.md` has the concrete implementation), Vue has `errorCaptured`, Angular has a global `ErrorHandler`. The framework-agnostic principle is the same regardless of mechanism: wrap major page sections independently so one widget failing doesn't blank-screen the whole app.
 2. **Check the browser console and Network tab first** — most "blank screen" bugs surface as a clear JS error in the console (a common one: trying to render before an async value has loaded, or a malformed API response the component didn't expect) or a failed critical asset/API request in the Network tab.
 3. **Log to an error-tracking service in production** (Sentry or similar) with source maps enabled, so a minified production stack trace still points to readable source lines — without this, debugging a report of "it broke for a user" from just a minified stack trace is painful.
 4. **Reproduce deliberately**: was there a recent deploy? Is it browser-specific? Is it tied to a particular data shape (e.g., a null field the UI didn't expect) rather than every user? Narrowing this down fast is most of the actual debugging work.
 5. **Design for graceful degradation on the data-fetching path too**, not just render errors: loading skeletons instead of blank space, retries with backoff for transient failures, and a clear inline error state with a recovery action (e.g., "retry") rather than a dead end.
 
-```jsx
-// an error boundary around one section, not the whole app
-class AccountsSectionBoundary extends React.Component {
-  state = { hasError: false }
-  static getDerivedStateFromError() { return { hasError: true } }
-  componentDidCatch(error, info) { logToSentry(error, info) }
-  render() {
-    if (this.state.hasError) return <p>Accounts unavailable right now. <button onClick={() => this.setState({ hasError: false })}>Retry</button></p>
-    return this.props.children
-  }
-}
-// usage: <AccountsSectionBoundary><AccountList /></AccountsSectionBoundary>
-// AccountList crashing no longer blanks the whole page — just that section
-```
-
 **Q: How do you diagnose "the page loaded fine but feels laggy" or a general frontend performance complaint?**
 A: **Chrome DevTools Performance tab and Network waterfall** — shows exactly what's blocking the page: a large blocking script, a slow API call, an unoptimized image. **Bundle size analysis** — an oversized JS bundle delays interactivity even if the server responded instantly. **React Profiler** — for "loaded fine but feels laggy while using it," this usually points to unnecessary re-renders rather than a network issue (missing `React.memo`, an unstable prop reference recreated every render). Core Web Vitals (Part 3) are the metrics; these are the tools you'd actually open to go find the cause.
 
 **Q: How do you handle a memory leak on the frontend specifically?**
-A: Start with a heap snapshot comparison in DevTools over time to see what's growing unbounded. The classic causes: event listeners or intervals registered in `useEffect` but never cleaned up in its return function (the cleanup-function footgun — every `addEventListener`/`setInterval` inside an effect needs a matching teardown), or closures holding references to large objects/DOM nodes longer than intended, keeping them from being garbage collected even after the component unmounts.
+A: Start with a heap snapshot comparison in DevTools over time to see what's growing unbounded. The classic causes, true regardless of framework: a listener or timer registered when a component/view mounts but never torn down when it unmounts, or a closure holding a reference to a large object/DOM node longer than intended, keeping it from being garbage collected. Every framework's component-lifecycle model has a matching mount/unmount teardown hook for exactly this — in React specifically, that's the function returned from `useEffect` (`ReactJS_QA.md` has the concrete pattern).
 
-```jsx
-useEffect(() => {
-  const timer = setInterval(() => refresh(accountId), 5000)
-  return () => clearInterval(timer) // without this, a new timer stacks on every re-render, none ever cleared
-}, [accountId])
+```js
+// framework-agnostic version of the bug: a listener added on setup, never removed on teardown
+function watchResize(onResize) {
+  window.addEventListener('resize', onResize)
+  // no matching removeEventListener anywhere -> every mount/unmount cycle stacks one more listener forever
+}
 ```

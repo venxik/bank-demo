@@ -57,7 +57,7 @@ for (Account a : accounts) {                    // for-each — iterate a collec
 ```
 
 **Q: What does Java's memory management actually look like, plain and complete?**
-A: Every thread has its own **stack** — local variables and method call frames, primitives and object *references* live here, automatically popped when a method returns. The **heap** is shared across all threads and holds every object created with `new` — the garbage collector reclaims heap memory once nothing references an object anymore. You never manually `free()`/`delete` in Java; the tradeoff for that convenience is GC pause behavior becoming something you have to understand and tune under real load (Part 7 below has the `String`/`StringBuilder` angle on this; `General_Backend_Engineering_QA.md` has the memory-leak debugging angle).
+A: Two regions — **stack** (per-thread, local variables and call frames) and **heap** (shared, every `new` object, GC-managed) — full breakdown with the `String`/`StringBuilder` angle in Part 7 below, memory-leak debugging in `General_Backend_Engineering_QA.md`. The one-line version: you never manually `free()`/`delete` in Java; the tradeoff for that convenience is GC pause behavior becoming something you have to understand and tune under real load.
 
 **Q: What's the basic shape of exception handling in Java?**
 A: `try` the risky code, `catch` the specific exception type(s) you can meaningfully handle, `finally` for cleanup that must run either way (though try-with-resources, Part 7 below, replaced most manual `finally` blocks), and `throw`/`throws` to raise or declare an exception.
@@ -113,6 +113,9 @@ account = null;                     // no live reference left to the old object
 // GC is now free to reclaim it — you never called free() or delete
 ```
 
+**Q: JDK vs. JRE vs. JVM — what's the actual relationship?**
+A: **JVM** — the virtual machine that actually executes bytecode (what the previous answer describes). **JRE** — JVM + the standard library classes needed to *run* a compiled Java program, nothing to build one. **JDK** — JRE + the compiler (`javac`) and other dev tools, needed to *write and build* Java. You install a JDK to develop; a deployed production server historically only needed a JRE, though modern JDKs (11+) bundle everything and the standalone-JRE distribution has largely been discontinued — worth knowing the three names even though the JRE-only split isn't really a live packaging choice anymore.
+
 **Q: What are generics, and why do they matter?**
 A: They let you write classes/methods that work with any type while keeping compile-time type safety (`List<String>` vs. a raw `List` that could silently hold anything) — catching type mismatches at compile time instead of a runtime `ClassCastException`. Conceptually the same as Go generics (Go 1.18+) — same goal, Java's syntax is more verbose (bounded wildcards, `<T extends X>`).
 
@@ -157,13 +160,22 @@ The absolute baseline for a Java interview — likely to surface in some form ev
 A: **Encapsulation** — bundling data with the methods that operate on it, and hiding internal state behind a controlled interface. **Abstraction** — exposing only what's relevant to the caller, hiding implementation detail behind an interface or abstract class. **Inheritance** — a class acquiring fields/behavior from a parent class. **Polymorphism** — the same method call behaving differently depending on the actual runtime type of the object.
 
 **Q: Give a concrete example of encapsulation — ideally from something you've actually built.**
-A: In the `bank-demo` project, `Account.balance` is a private field with no public setter — the only way to change it is through `deposit()`/`withdraw()`, which enforce the "can't go negative" rule. If `balance` were public, nothing would stop a caller from setting it directly and bypassing that rule entirely. That's encapsulation doing real work, not just a textbook definition.
+A: In the `bank-demo` project, `Account.balance` is a private field with no public setter — the only way to change it from outside the class is through `credit()`/`debit()`. `Account` itself just mutates the number; the actual business rule ("can't go negative") is enforced one layer up, in `AccountService.withdraw()`, which checks the balance and throws `InsufficientFundsException` *before* ever calling `debit()`. Worth being precise about that split if asked to walk through it: encapsulation is what makes `balance` unreachable except through those two methods; the invariant itself lives in the service layer, not inside `Account`. If `balance` were public, nothing would stop a caller from setting it directly and bypassing the service-layer check entirely.
 
 ```java
-private BigDecimal balance;               // private — nothing outside this class can touch it directly
-public void withdraw(BigDecimal amount) {
-    if (amount.compareTo(balance) > 0) throw new InsufficientFundsException();
-    balance = balance.subtract(amount);   // the ONLY path that can ever change balance
+// entity/Account.java — encapsulates the field, but doesn't itself enforce "can't go negative"
+private BigDecimal balance;
+public void credit(BigDecimal amount) { this.balance = this.balance.add(amount); }
+public void debit(BigDecimal amount) { this.balance = this.balance.subtract(amount); } // no guard here
+
+// service/AccountService.java — this is where the actual business rule lives
+public AccountResponse withdraw(Long id, AmountRequest request, String idempotencyKey) {
+    Account account = findAccountOrThrow(id);
+    if (account.getBalance().compareTo(request.amount()) < 0) {
+        throw new InsufficientFundsException(id); // the invariant check, one layer above the entity
+    }
+    account.debit(request.amount());
+    ...
 }
 // account.balance = new BigDecimal("999999"); // would not even compile from outside the class
 ```
@@ -380,7 +392,7 @@ Spring's answer to "add behavior around a method without touching its code." `@T
 
 Call a `@Transactional` method → hits the proxy first → proxy opens a transaction → delegates to the real method → commits (or rolls back on an unchecked exception) → returns.
 
-**Classic gotcha, worth knowing cold**: self-invocation bypasses the proxy. Call a `@Transactional` method from another method *in the same class* and you're calling `this.method()` directly, never through the proxy — the transaction silently doesn't apply. In `bank-demo`, `AccountService.java` has `@Transactional` on `deposit()`, `withdraw()`, `transfer()`, and the idempotency helper (lines 51, 68, 79, 107) — each only works because they're invoked from `AccountController`, *outside* the class, through the real proxy.
+**Classic gotcha, worth knowing cold**: self-invocation bypasses the proxy. Call a `@Transactional` method from another method *in the same class* and you're calling `this.method()` directly, never through the proxy — the transaction silently doesn't apply. In `bank-demo`, `AccountService.java` has `@Transactional` on `createAccount()`, `deposit()`, `withdraw()`, and `transfer()` (lines 51, 68, 79, 107) — each only works because they're invoked from `AccountController`, *outside* the class, through the real proxy. (The idempotency helper, `executeIdempotent()`, is a private method called *from inside* those four — it deliberately has no `@Transactional` of its own, since it just runs inside whichever transaction the calling public method already opened.)
 
 ### Singleton
 **Spring usage**: Spring bean default scope. One instance per container (not JVM-wide, per-`ApplicationContext`). `bank-demo`'s `ConsoleNotificationService`/`SmsNotificationService` get this free from `@Component` — no hand-written `private constructor + static getInstance()`.
@@ -678,7 +690,7 @@ A: A concise way to declare an immutable data-carrier class — the compiler gen
 ```java
 public record AccountSummary(Long id, String ownerName, BigDecimal balance) {}
 ```
-Good instinct-check: if asked to "make this class immutable" today, in modern Java a record is usually the right reach — `bank-demo`'s `AccountResponse` hand-writes exactly what a record would generate automatically, which is worth pointing out if it comes up.
+Good instinct-check: if asked to "make this class immutable" today, in modern Java a record is usually the right reach — `bank-demo`'s own `AccountResponse` already *is* one (`public record AccountResponse(Long id, String accountNumber, ...)`), which is worth pointing out directly if it comes up: no hand-written constructor, accessors, `equals()`, or `hashCode()` anywhere in that file.
 
 **Q: What's a sealed class or interface?**
 A: Restricts which classes are allowed to extend or implement it, declared explicitly:

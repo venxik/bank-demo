@@ -73,13 +73,13 @@ The one file worth genuinely knowing line-by-line:
 Six endpoints, each thin — no business logic, just deserialize/delegate/return. Notice: `deposit`/`withdraw`/`transfer` (lines 42-61) all take `@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey` and pass it straight through to the service. This file is your walkthrough answer for "did you use microservices" in miniature — it's the thin controller layer that a real full-stack request actually flows through, HTTP in, HTTP out, everything else delegated.
 
 ### 13. `exception/` + `GlobalExceptionHandler.java` — centralized error handling
-Five tiny exception classes (`AccountNotFoundException`, `DuplicateAccountNumberException`, `InsufficientFundsException`, `SelfTransferException`, 7 lines each), then `GlobalExceptionHandler.java` (65 lines) — one `@RestControllerAdvice`, six `@ExceptionHandler` methods, each mapping one exception type to one HTTP status: `AccountNotFoundException` → 404, `InsufficientFundsException`/`DuplicateAccountNumberException`/`OptimisticLockingFailureException` → 409, `SelfTransferException`/validation failures → 400, anything else → 500 (line 60-64, the catch-all). The `OptimisticLockingFailureException` handler (lines 38-43) is the other half of stop 5's `@Version` story — this is *where* that lost-update race actually surfaces as an HTTP response, not just a thrown exception nobody catches.
+Four tiny exception classes (`AccountNotFoundException`, `DuplicateAccountNumberException`, `InsufficientFundsException`, `SelfTransferException`, 7 lines each), then `GlobalExceptionHandler.java` (65 lines) — one `@RestControllerAdvice`, seven `@ExceptionHandler` methods, each mapping one exception type to one HTTP status: `AccountNotFoundException` → 404, `InsufficientFundsException`/`DuplicateAccountNumberException`/`OptimisticLockingFailureException` → 409, `SelfTransferException`/validation failures → 400, anything else → 500 (line 60-64, the catch-all). The `OptimisticLockingFailureException` handler (lines 38-43) is the other half of stop 5's `@Version` story — this is *where* that lost-update race actually surfaces as an HTTP response, not just a thrown exception nobody catches.
 
 ### 14. `src/test/java/.../AccountServiceTransferTest.java` — what's actually verified
 `@SpringBootTest` (line 17) — real Spring context, real (in-memory) DB, not mocks. Four tests, know what each one proves: `transferMovesBalanceBetweenAccounts` (happy path, balances move correctly both directions), `transferToSelfIsRejected` (the `SelfTransferException` guard), `transferBeyondBalanceIsRejected` (the `InsufficientFundsException` guard), and `replayingIdempotencyKeyDoesNotDoubleDebit` (lines 51-62) — calls `transfer` twice with the *same* idempotency key and asserts the balance only moved once. That last test is the actual, runnable proof behind every "how do you make a payment idempotent" answer in this project — not a claim, a passing test.
 
 ### 15. `frontend/src/` — the React/Redux side
-- `App.jsx` (146 lines) — `CreateAccountForm`, `AccountRow`, `App` — plain fetch calls (`apiCall` helper, lines 6-13) for mutations, Redux for the shared account list.
+- `App.jsx` (146 lines) — `CreateAccountForm`, `AccountRow`, `App` — plain fetch calls (`apiCall` helper, lines 8-15) for mutations, Redux for the shared account list.
 - `accountsSlice.js` — `createSlice` + one `createAsyncThunk` (`fetchAccounts`), `extraReducers` handling `.fulfilled`/`.rejected`.
 - `store.js` — `configureStore({ reducer: { accounts: accountsReducer } })`, one slice.
 - `main.jsx` — `<Provider store={store}>` wrapping `<App />`.
@@ -186,8 +186,8 @@ Marks the primary-key field.
 **`@GeneratedValue(strategy = GenerationType.IDENTITY)`** — `Account.java:12`
 The database auto-generates the ID (e.g. auto-increment column) — you don't set it yourself before saving.
 
-**`@Column(nullable = false, unique = true)`** — `Account.java:15,18,21,24`
-Customizes the mapped database column. `nullable = false` → `NOT NULL` constraint. `unique = true` → unique constraint. `updatable = false` (line 24, `createdAt`) → this column is set once on insert and never touched by later `UPDATE`s.
+**`@Column(...)`** — `Account.java:15,18,21,24`
+Customizes the mapped database column. `nullable = false` (all four) → `NOT NULL` constraint. `unique = true` (line 15, `accountNumber` only) → unique constraint. `updatable = false` (line 24, `createdAt`) → this column is set once on insert and never touched by later `UPDATE`s.
 
 **`@Version`** — `Account.java:36`
 Optimistic locking. JPA auto-increments this field on every `UPDATE` and includes the old value in the `WHERE` clause. If another transaction already bumped it, your update matches zero rows and Hibernate throws `OptimisticLockingFailureException` instead of silently overwriting someone else's change. See the longer comment right above it in `Account.java` for the concurrency reasoning.
@@ -266,15 +266,20 @@ DTOs in this project are **Java records** (`record AccountResponse(...)`) — a 
 ```java
 @Entity                             // entity/Account.java — mirrors the DB row exactly
 public class Account {
-    @Version private long version;  // JPA bookkeeping, has no business meaning to an API caller
+    @Version private long version;  // JPA bookkeeping — the entity carries it, the mapping decides if it goes out
     // ... mutable via credit()/debit(), never serialized straight to JSON
 }
 
-public record AccountResponse(Long id, String accountNumber, BigDecimal balance) { // dto/AccountResponse.java
-    static AccountResponse from(Account a) {                 // the explicit mapping boundary
-        return new AccountResponse(a.getId(), a.getAccountNumber(), a.getBalance());
+// dto/AccountResponse.java — a record, not hand-written boilerplate
+public record AccountResponse(Long id, String accountNumber, String ownerName,
+                               BigDecimal balance, Instant createdAt, long version) {
+    public static AccountResponse from(Account a) {          // the explicit mapping boundary
+        return new AccountResponse(a.getId(), a.getAccountNumber(), a.getOwnerName(),
+                a.getBalance(), a.getCreatedAt(), a.getVersion());
     }
-    // no `version` field exposed — the API contract doesn't need to know about optimistic locking
+    // version IS exposed here — a caller can see the current version (e.g. via GET),
+    // but this demo doesn't require it back on writes: the @Version check protects against
+    // two concurrent server-side requests racing, not a client-driven check-and-set flow
 }
 ```
 

@@ -12,7 +12,7 @@ spring:
     hibernate:
       # Liquibase owns the schema now (db/changelog) — Hibernate only checks
       # entities match it at startup, never mutates it. See Liquibase primer,
-      # Consolidated_Prep §10.
+      # Spring_Java_QA.md Part 19.
       ddl-auto: validate
     show-sql: true
     properties:

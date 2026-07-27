@@ -10,7 +10,7 @@ The highest-signal document in this whole project: actual questions reported by 
 Pulled from multiple independently-reported OCBC Software Developer/Engineer interviews (Singapore, Hong Kong, Kuala Lumpur). The pattern is consistent across reports, which is itself useful signal — this is a stable, repeated interview structure, not one-off variation:
 
 1. **Self-introduction and walkthrough of past projects, including tech stack used** → `Self_Intro_And_Behavioral.md` §1.
-2. **"What is the design pattern and how do you use it in Spring Boot?"** → `Spring_Java_QA.md` Part 5 — full worked example (Proxy/AOP + the self-invocation gotcha) plus 8 more patterns each with a Spring class or `bank-demo` file backing it.
+2. **"What is the design pattern and how do you use it in Spring Boot?"** → `Spring_Java_QA.md` Part 5 — full worked example (Proxy/AOP + the self-invocation gotcha) plus 10 more patterns each with a Spring class or `bank-demo` file backing it.
 3. **"There are two types of Autowired — explain what they are."** → `Spring_Java_QA.md` Part 10 — field vs. constructor injection, and *why* constructor injection is preferred. This one is confirmed to come up directly, word for word, across multiple reports — know it cold.
 4. **"Why do we need to use Spring?"** → `Spring_Java_QA.md` Part 10.
 5. **"What is Redis?"** → `Banking_Wealth_Domain_Playbook.md` (Redis section, Part 1).

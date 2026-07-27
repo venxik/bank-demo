@@ -207,13 +207,16 @@ curl -X POST http://localhost:8080/accounts/1/deposit -H "Content-Type: applicat
 ```
 
 ```java
-// the mechanism, as implemented in AccountService.java
-Optional<IdempotencyRecord> existing = idempotencyRepository.findById(idempotencyKey);
-if (existing.isPresent()) {
-    return existing.get().getResponseBody(); // replay stored result, never reprocess
-}
-AccountResponse result = doDeposit(accountId, amount);
-idempotencyRepository.save(new IdempotencyRecord(idempotencyKey, accountId, toJson(result), 200));
+// the mechanism, as implemented in AccountService.java's executeIdempotent() helper —
+// deposit/withdraw/transfer all route through this before doing their real work
+return idempotencyRecordRepository.findById(idempotencyKey)
+        .map(record -> deserialize(record, responseType))     // key seen before -> replay, never reprocess
+        .orElseGet(() -> {
+            T response = action.get();                        // key not seen -> actually run the operation
+            idempotencyRecordRepository.save(new IdempotencyRecord(
+                    idempotencyKey, accountId, serialize(response), 200));
+            return response;
+        });
 ```
 
 *Tie-in: real-time payment rails like BI-FAST are built around exactly this problem — retries are expected at the network layer, so the initiation API has to be safe to call twice. If your CIMB Niaga work touched this, it's your strongest concrete example.*
@@ -340,6 +343,8 @@ CREATE TABLE ledger_entries (
 | **IPO (Initial Public Offering)** | A private company issues shares to the public for the first time. Platform-side: handling subscription periods, allocation logic (often oversubscribed), and conversion from "application" to "holding." |
 | **Loans & Deposits** | Not "trading" instruments, but wealth products offered alongside investments (e.g., structured deposits) — relevant because a wealth platform often needs to show a client's *full* position across trading and banking products. |
 | **Front-to-back integration** | Front office (client-facing dealing/advisory) → middle office (risk, compliance checks) → back office (settlement, accounting). A trade flows through this pipeline; the JD's "front-office and order-management workflows" phrase is pointing at the front-to-middle part of this chain. |
+| **SGX (Singapore Exchange)** | The exchange itself — where listed equities, bonds, and derivatives actually trade in Singapore. Relevant as the counterparty system a local OMS ultimately routes orders to/settles against. |
+| **CDP (Central Depository)** | Singapore's central securities depository — holds the official record of who owns what listed security (a CDP account, not the broker, is the legal holder of record for direct SGX holdings). Comes up when discussing custody/settlement, since "who's the system of record for ownership" is a real design question. |
 
 **If asked "what's your experience with capital markets/wealth products"** — be honest, then pivot: *"I haven't worked directly on trading or wealth products, but I have worked on systems with the same underlying demands — BI-FAST integration at CIMB Niaga required the same rigor around consistency and auditability that I'd expect an order management workflow to need. I'd expect the domain vocabulary to be the fastest part to pick up; the harder part — building for correctness under regulatory and financial-consistency constraints — is exactly what I've already done."*
 
@@ -412,4 +417,4 @@ Everything above, pointed at a single design prompt — the checklist to run thr
 - **Idempotency**: critical for payment and order-submission APIs (Part 1 + Part 2, Scenario 2) — retries must not double-process a transaction or double-submit an order. Directly relevant to your BI-FAST integration experience.
 - **Order state machine**: New → Partially Filled → Filled/Cancelled/Rejected, with clear rules about which transitions are valid — the full implementation is above, under OMS.
 - **Security**: encryption at rest/in transit, strict access control, PCI DSS-style compliance awareness if relevant.
-- **Scalability**: read-heavy (price/quote lookups) vs. write-heavy (order submission) paths often need different scaling strategies — read replicas, Redis caching (above) for the former, queue-based load leveling (Kafka) for the latter. General scalability patterns are in `General_Backend_Engineering_QA.md` Part 1 — this is just the domain-specific lens on the same tradeoffs.
+- **Scalability**: read-heavy (price/quote lookups) vs. write-heavy (order submission) paths often need different scaling strategies — read replicas, Redis caching (above) for the former, queue-based load leveling (Kafka) for the latter. General scalability patterns are in `General_Backend_Engineering_QA.md` Part 15 — this is just the domain-specific lens on the same tradeoffs.
