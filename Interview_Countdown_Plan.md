@@ -12,7 +12,7 @@ Everything below is checked against the actual JD requirements, not against "is 
 
 | JD requirement | Status | Where |
 |---|---|---|
-| 10+ yrs Java/J2EE | **Honest framing scripted, but blanks unfilled** | `Self_Intro_And_Behavioral.md` §2 — you haven't written your actual answer yet |
+| 10+ yrs Java/J2EE | **Honest framing scripted, real anchor now filled in** — the BI-FAST mobile integration at CIMB Niaga is real professional Java, not just coursework; timeline and Result details still need to come from memory | `Self_Intro_And_Behavioral.md` §2 and §5 |
 | Agile/SDLC | Covered | `General_Backend_Engineering_QA.md` Part 19 |
 | Spring ecosystem / microservices | Strong — conceptual + a real working demo | `Spring_Java_QA.md` + `bank-demo` itself |
 | REST/JSON/Swagger/XML | **Closed 22 Jul** — springdoc-openapi wired in, live Swagger UI + `/v3/api-docs` | `pom.xml`, README |
@@ -38,7 +38,7 @@ Nobody else can write these for you, and they're the parts most likely to sound 
    - What did you build or touch?
 2. **`ReactJS_QA.md` — React Native bridge section** — your own specific example of the trickiest thing to unlearn moving between RN and React DOM.
 3. **Behavioral STAR stories** — fully developed with real, git-verified detail in `Self_Intro_And_Behavioral.md` §5, including one decision that's now presented in exactly one place instead of scattered across three docs: the pricing-service story is more accurately "hardened and fixed a teammate's Go service, caught a bug that mispriced 462 SKUs" rather than "migrated it from Jupyter." Pick one before mock #1. The gRPC-vs-messaging disagreement story's real outcome also still needs to come from your memory — repo archaeology found no trace of it.
-4. **The CIMB Niaga BI-FAST story specifically** — `Self_Intro_And_Behavioral.md` §5's story bank is entirely Laku6/Carousell; BI-FAST only appears as one-line domain framing (§1, §7), not a STAR-developed story. If "deep dive into your BI-FAST work" comes up, you need your own situation/task/action/result in your head before mock #1 — this doc can't write it for you since it has no real specifics on that project to draw from.
+4. **The CIMB Niaga BI-FAST story — Action and Result still needed** — `Self_Intro_And_Behavioral.md` §5 now has the real Situation/Task (mobile-side BI-FAST integration for BizChannel via a vendor SDK, inside a legacy codebase), but the Action (how you actually learned the vendor tooling and navigated the legacy code) and Result (did it ship, when, any specific outcome) are still blank. Fill those in before mock #1 — this is the highest-priority remaining gap in the whole project.
 5. **Logistics follow-up** — per `Self_Intro_And_Behavioral.md`, you asked Lam Yan Kay 4 questions on 15 Jul (permanent/contract, WFH, location, team), routed to Lee Kin Kit on 16 Jul, no reply as of prep time. Decide now: nudge before the 3rd, or raise briefly at the end of the interview as that doc already scripts. Don't leave this as a live decision under interview pressure.
 
 ---
@@ -86,7 +86,7 @@ Used for the two mock runs above. Minutes assigned so a rehearsal run has someth
 | Phase | Minutes | Source |
 |---|---|---|
 | Self-intro + high-level project walkthrough | 10 | `Self_Intro_And_Behavioral.md` §1 |
-| Deep dive into 1–2 CV projects (they will pick one and push) | 15 | The Laku6 pricing-service story is fully STAR-developed (`Self_Intro_And_Behavioral.md` §1/§5). The CIMB Niaga BI-FAST story is not — it's currently framing only, per Part 2 item 4 above. Develop that one from memory before mock #1, don't wing it live. |
+| Deep dive into 1–2 CV projects (they will pick one and push) | 15 | The Laku6 pricing-service story is fully STAR-developed (`Self_Intro_And_Behavioral.md` §1/§5). The CIMB Niaga BI-FAST story has real S/T now but still needs Action/Result filled in from memory, per Part 2 item 4 above — don't wing that half live. |
 | Core Java / Spring Q&A | 15 | `Spring_Java_QA.md` + `Master_Question_Checklist.md` |
 | Database & caching (SQL vs. NoSQL, Redis) | 8 | `Banking_Wealth_Domain_Playbook.md` Part 1 |
 | Microservices experience & design | 8 | `Self_Intro_And_Behavioral.md` §5 (your example) + `General_Backend_Engineering_QA.md` Part 16 (concepts) |

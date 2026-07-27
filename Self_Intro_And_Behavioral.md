@@ -39,14 +39,14 @@ The JD lists *"10+ years of hands-on software engineering experience in enterpri
 
 **Do this — a three-part structure:**
 
-1. **Name it plainly, without over-apologizing.** *"My hands-on Java has been through [coursework / personal projects / a brief professional stint — fill in your actual specifics here], so I won't pretend it's my primary language. My production depth is in Go."*
+1. **Name it plainly, without over-apologizing.** *"My hands-on Java has been through professional mobile work at CIMB Niaga — the BizChannel business banking app's BI-FAST integration — plus this bank-demo Spring Boot project I built for this interview. I won't pretend it's 10+ years of enterprise Java/J2EE, but it's real, not just coursework."*
 2. **Immediately pivot to why that's lower-risk than it sounds.** *"The reason I'm comfortable with this role despite that is Java and Go solve the same problems — dependency injection, interfaces, concurrency, REST — with different syntax. The learning curve for me is vocabulary and ecosystem conventions, not the underlying engineering judgment."*
-3. **Give one concrete anchor.** Fill in a real, specific example: a personal project where you used Spring Boot, a course where you built something in Java, or a task at a previous job where you touched a Java codebase even briefly. Specificity here matters far more than the three-part structure — one real detail beats a well-rehearsed generality.
+3. **Give one concrete anchor.** Use the BI-FAST mobile story below (§5) — it's real, professional, and directly on-domain for a bank interview.
 
-**Fill in before the interview** (don't leave this blank — write your actual answer now, not live in the room):
-- What was the Java thing? _______________________
-- Roughly when / how long? _______________________
-- What did you build or touch? _______________________
+**Filled in — the real anchor** (full STAR version in §5, "Real professional Java — the BI-FAST mobile integration"):
+- What was the Java thing? → Developed the mobile side of BI-FAST for CIMB Niaga's BizChannel app (the business/corporate-client app, not retail) — integrating a vendor's third-party SDK to connect the mobile app to the core banking backend, in Java, inside BizChannel's existing legacy codebase.
+- Roughly when / how long? _______________________ — **still blank, fill this in**, an interviewer will ask
+- What did you build or touch? → The vendor-SDK integration itself, plus getting productive inside legacy code you didn't write. Result/outcome (did it ship, any specific bug or blocker you solved, timeline) — **still blank, fill this in before mock #1**, see §5 for exactly what's missing.
 
 Rehearse saying this out loud once. The goal isn't to sound like you have 10 years of Java — it's to sound like someone who knows exactly what they have and isn't rattled by the gap.
 
@@ -98,6 +98,19 @@ You considered saying you're not someone who digs into internals, preferring to 
 ---
 
 ## 5. Your Real Story Bank
+
+### Real professional Java — the BI-FAST mobile integration (CIMB Niaga)
+
+This is your strongest possible answer to "have you used Java professionally" and "tell me about your BI-FAST work" — it's real, professional, on-domain for a bank interview, and directly Java. It also doubles as your Java-experience anchor for §2. **Result is still blank below — fill it in from memory before mock #1, this is the single most important gap left in this whole document.**
+
+> **S:** CIMB Niaga's BizChannel app (the business/corporate-banking client app, not the retail app) needed BI-FAST payment rail support added on the mobile side. The integration point was a vendor's third-party SDK/tooling connecting the mobile app to the core banking backend, and the app itself was an existing, legacy codebase you hadn't built.
+> **T:** Get productive fast in unfamiliar vendor tooling *and* an unfamiliar legacy codebase at the same time, and deliver the mobile-side BI-FAST integration in Java.
+> **A:** _______________________ (how did you actually approach learning the vendor's SDK — docs, vendor support, trial and error? What specifically was hard about the legacy code — undocumented modules, an unusual architecture, old dependency versions? Did you hit a specific bug or integration blocker with the vendor tool, and how did you resolve it?)
+> **R:** _______________________ (did it ship? Roughly when? Any specific outcome — a bug you caught, a deadline you hit, feedback you got? Even one concrete detail turns this from "I did some integration work" into a real story.)
+
+**Why this matters more than it looks like**: this single story closes two gaps at once — it's real evidence against the "have you used Java professionally" question (§2), and it's your most on-domain answer for "tell me about your BI-FAST experience" (flagged as a likely deep-dive in `Interview_Countdown_Plan.md`). Don't let it stay half-built.
+
+---
 
 ### Learning quickly / adapting fast — primary story: the Carousell 3-month contract
 This is your strongest adaptability story, and it's real:
@@ -212,6 +225,7 @@ You don't need a separate story for every possible question — the same story c
 
 | Story | Can also answer |
 |---|---|
+| BI-FAST mobile integration (CIMB Niaga) | "Have you used Java professionally," "tell me about BI-FAST," learning unfamiliar tooling, working with legacy code |
 | Carousell 3-month contract | Adapting quickly, working under pressure/deadline, prioritization (ramping up *and* delivering scope at once) |
 | Pricing story (Laku6) | Greatest achievement, initiative, technical problem-solving |
 | Checkout payment bug | Pressure/deadline, technical problem-solving, debugging methodology |
@@ -224,7 +238,7 @@ You don't need a separate story for every possible question — the same story c
 ## 7. Motivation & "Why" Questions
 
 ### "Why are you interested in this role?"
-The honest and grounded version: the role is genuinely full-stack, matching your background; the domain is banking, playing directly to your CIMB Niaga/BI-FAST experience even though the specific product surface (wealth/trading vs. payments) is new; and Java specifically is a deliberate stretch you're taking on with your eyes open, which the interview itself is proof of, not a claim.
+The honest and grounded version: the role is genuinely full-stack, matching your background; the domain is banking, playing directly to your CIMB Niaga/BI-FAST experience (including real, professional mobile-side Java on that integration — §5) even though the specific product surface (wealth/trading vs. payments) is new; and deep enterprise Java/J2EE specifically is a deliberate stretch you're taking on with your eyes open, which the interview itself is proof of, not a claim.
 
 ### "Why are you leaving your current role?"
 Growth-framed only: grateful for the Laku6 experience, but want to deepen full-stack expertise, work on larger-scale systems in a regulated environment, build on the CIMB Niaga foundation rather than start over. Never mention salary or anything negative about Laku6.
