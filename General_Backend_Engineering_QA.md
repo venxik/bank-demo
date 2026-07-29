@@ -316,6 +316,24 @@ def update_account_fast(id, data):
 **Q: What's cache eviction, and what are the common policies?**
 A: When a cache is full and a new item needs to be added, something has to be removed — the eviction policy decides what. **LRU (Least Recently Used)** — evict whatever hasn't been accessed in the longest time, the most common default. **LFU (Least Frequently Used)** — evict whatever's accessed least often overall, better when access frequency matters more than recency. **TTL-based** — items expire after a fixed time regardless of access pattern, simplest to reason about, common for data that's only valid for a known window (a quote, a session).
 
+**Q: Your Redis cache crashes unexpectedly — how should your application behave?**
+A: It should degrade, not go down with it — a cache is an optimization, and the moment it's treated as a hard dependency (the app can't serve a request without it), it's stopped being "just a cache." The standard shape: wrap the cache call with a short timeout and a fallback straight to the database on failure (a cache-aside read that catches the Redis exception and just queries the DB instead), so a dead cache turns into "everything's a bit slower" rather than "everything's down." At real scale this is exactly the circuit-breaker pattern applied to the cache dependency specifically — fail fast after a few timeouts instead of letting every request hang waiting on a cache that isn't coming back, and periodically retry to detect recovery.
+
+```java
+// fallback-to-DB on cache failure — the cache being down degrades performance, not availability
+Account getAccount(Long id) {
+    try {
+        Account cached = cache.get(id, Account.class); // short timeout configured on the cache client itself
+        if (cached != null) return cached;
+    } catch (RedisConnectionException e) {
+        log.warn("cache unavailable, falling back to DB for account {}", id);
+    }
+    Account account = accountRepository.findById(id).orElseThrow();
+    try { cache.set(id, account); } catch (RedisConnectionException ignored) { /* best-effort only */ }
+    return account;
+}
+```
+
 ---
 
 ## Part 7: Message Queues & Event-Driven Architecture
@@ -361,6 +379,12 @@ A: A topic is split into partitions, each an ordered, append-only log. Partition
 // keying by orderId — every event for THIS order always lands on the same partition, in order
 kafkaTemplate.send("order-events", /* key= */ orderId.toString(), event);
 ```
+
+**Q: One Kafka partition has much higher traffic than others — how do you fix it?**
+A: This is the direct tradeoff of the same partition-key choice above: keying by something with a very uneven distribution (one huge customer generating 90% of events, or a key with very few distinct values) sends most of the traffic to one partition while the others sit idle — you get ordering, but lose the parallelism partitioning was supposed to buy you. Fixes, in order of preference: pick a higher-cardinality, more evenly-distributed key if the ordering requirement allows it (e.g., order ID instead of customer ID, if per-order ordering is what actually matters, not per-customer); if the hot key's ordering truly can't change, add more partitions so the *other* keys spread out better even though the hot one is still concentrated; or, for a small number of known hot keys, salt the key deliberately (append a random suffix) to spread just that key's traffic — at the cost of losing strict ordering for it, so only do this if that entity's ordering doesn't actually matter.
+
+**Q: Consumer lag keeps increasing — how would you investigate?**
+A: Lag is simply "latest offset minus last-committed offset" — it grows whenever consumers process slower than producers publish. Check, in order: is the consumer actually up and healthy (a crashed/stuck consumer stops committing entirely, lag grows unbounded)? Is per-message processing slow (a slow downstream call, a slow DB write inside the listener) — profile one message end to end. Are there enough consumer instances for the partition count (a consumer group can't have more *active* consumers than partitions — extra instances sit idle, but too few means each one owns multiple partitions' worth of work)? And is the traffic itself just up (a real spike), in which case the fix is scaling consumers or partitions, not debugging a bug.
 
 **Q: What's a Kafka consumer group?**
 A: A set of consumers splitting the work of consuming a topic — each partition is assigned to exactly one consumer within the group at a time, so the group processes the topic in parallel, and Kafka automatically rebalances partition assignments when a consumer joins or leaves.
@@ -560,6 +584,7 @@ Short, direct answers, under 15 seconds each:
 - **What's a bloom filter, and what's it for?** A probabilistic set membership check — can say "definitely not in the set" with certainty, or "possibly in the set" (with a tunable false-positive rate), using far less memory than storing the actual set. Common use: checking "might this key exist in the DB" before paying for an actual disk read.
 - **What's the difference between a monolith, an SOA, and microservices?** Monolith — one deployable unit. SOA — a handful of larger, often shared-infrastructure services. Microservices — many small, independently deployable services, each owning its own data — the modern end of the same spectrum SOA started. (Full monolith-vs-microservices tradeoffs, API Gateway, service discovery: Part 16 below.)
 - **What's graceful degradation?** Continuing to serve a reduced/simplified experience when a dependency fails, instead of a hard error — e.g., showing a cached price with a "may be stale" note instead of a blank screen.
+- **An EC2 instance needs to access S3 securely — how do you configure it without storing credentials?** Attach an **IAM role** (via an instance profile) to the EC2 instance instead of putting an access key/secret in config or code. AWS automatically rotates short-lived temporary credentials to the instance behind the scenes, scoped to exactly the permissions the role's policy grants (e.g., read-only on one specific bucket) — nothing long-lived to leak, and nothing to rotate manually.
 
 ---
 
@@ -711,6 +736,9 @@ Monolith:        [ Web + Orders + Payments + Inventory ]  ← one process, one d
 Microservices:   [ Web ] → [ Orders ] → [ Payments ] → [ Inventory ]  ← 4 processes, 4 deploys, own DBs each,
                     talking over the network (REST/gRPC/Kafka) instead of an in-process method call
 ```
+
+**Q: One microservice needs to talk to another — would you choose REST, gRPC, or Kafka? Why?**
+A: Depends on the actual coupling the interaction needs, not a universal "best" choice. **REST** — the default for request/response where a human-readable, widely-interoperable contract matters (a public-facing API, or any call where debuggability with a plain browser/curl is worth more than raw speed); simplest to reason about and onboard onto. **gRPC** — request/response between *internal* services where performance matters (binary Protobuf payloads, HTTP/2 multiplexing) and both ends are your own code that can share a `.proto` contract — the tradeoff is it's harder to debug ad hoc (not human-readable on the wire) and less friendly to being called from a browser directly. **Kafka** — reach for this when the interaction isn't really request/response at all: the caller doesn't need an immediate answer, multiple consumers might care about the same event, or the two services shouldn't be temporally coupled (Part 7 above) — a "this happened" fact broadcast, not a question waiting on an answer.
 
 **Q: What's an API Gateway, and why use one?**
 A: A reverse proxy sitting between clients and your microservices, centralizing cross-cutting concerns — authentication, SSL termination, rate limiting, request routing, response caching — so individual services don't each have to implement them. (Spring Cloud Gateway is the current standard in the Spring ecosystem; Netflix Zuul is the older, now-legacy alternative worth recognizing by name but not necessarily using.)

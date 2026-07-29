@@ -361,6 +361,24 @@ ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
 pool.submit(() -> callSlowDownstreamService()); // cheap enough to do this per-request
 ```
 
+**Q: Your REST API takes 30 seconds because it calls three downstream services — how do you optimize it?**
+A: First check whether the three calls actually depend on each other's results — if not, the 30 seconds is probably three sequential blocking calls that should be running concurrently instead. `CompletableFuture` fans them out and joins on whichever finishes last, turning "sum of three latencies" into "max of three latencies."
+
+```java
+// sequential — 30s total if each downstream call takes ~10s
+var a = callServiceA(); // blocks ~10s
+var b = callServiceB(); // blocks ~10s
+var c = callServiceC(); // blocks ~10s
+
+// concurrent — ~10s total, all three in flight at once
+CompletableFuture<A> fa = CompletableFuture.supplyAsync(this::callServiceA);
+CompletableFuture<B> fb = CompletableFuture.supplyAsync(this::callServiceB);
+CompletableFuture<C> fc = CompletableFuture.supplyAsync(this::callServiceC);
+CompletableFuture.allOf(fa, fb, fc).join();
+var result = combine(fa.join(), fb.join(), fc.join());
+```
+If they genuinely must run in sequence (call 2 needs call 1's output), the next lever is cutting per-call latency itself — caching a slow-changing downstream response (Part 6 of `General_Backend_Engineering_QA.md`), or adding a timeout so one hanging dependency doesn't block the whole request indefinitely.
+
 **Q: What's a race condition, and how do you prevent one in Java?**
 A: When the outcome of concurrent operations depends on unpredictable timing/interleaving, producing incorrect results. Prevention: the `synchronized` keyword/blocks, `java.util.concurrent` locks (`ReentrantLock`), atomic classes (`AtomicInteger`, etc.), or — best of all — avoiding shared mutable state entirely via immutable objects or message-passing. Same philosophy as Go's "don't communicate by sharing memory, share memory by communicating." (The banking-specific version of this — account-balance races, optimistic vs. pessimistic locking — is in `Banking_Wealth_Domain_Playbook.md`, Scenario 6.)
 
@@ -588,6 +606,19 @@ Requires the resource to implement `AutoCloseable` (or its subtype, `Closeable`)
 **Q: What's an `enum` good for beyond a fixed list of constants?**
 A: A fixed set of named instances that are genuine objects — an enum can have fields, a constructor, and methods, even different behavior per constant. It's type-safe (the compiler rejects an invalid value, unlike a raw `String` or `int` "status code" would), and — per Part 5 above — it's the basis of the recommended modern Singleton implementation.
 
+**Q: Your application suddenly starts throwing `OutOfMemoryError` — how would you debug it?**
+A: First distinguish *which* OOM — the message names it. `Java heap space` — the heap itself is exhausted, the common one. `GC overhead limit exceeded` — the JVM is spending almost all its time GC'ing and reclaiming almost nothing, a symptom of a near-full heap rather than a separate problem. `Metaspace` — class metadata exhausted, common with dynamic class generation or a classloader leak on repeated hot-redeploys. For heap exhaustion specifically: capture a heap dump (`-XX:+HeapDumpOnOutOfMemoryError` so one is captured automatically the moment it happens, rather than trying to reproduce it live), open it in a profiler (Eclipse MAT, VisualVM), and look at the dominator tree — what's retaining the most memory, and via what reference chain. Classic Java-specific causes: a `static` collection that keeps growing (nothing ever evicts from it), a cache with no size bound or eviction policy, `ThreadLocal` values never cleared (especially dangerous in a pooled-thread server, since the thread — and its `ThreadLocal` — outlives any single request), or listeners/subscribers registered but never deregistered.
+
+```java
+// classic static-collection leak — this map has no eviction, no TTL, no bound
+private static final Map<String, Session> sessions = new HashMap<>(); // grows forever, never shrinks
+
+// ThreadLocal leak — pooled threads reuse the same Thread, so a never-cleared
+// ThreadLocal silently keeps last request's data alive on that thread, forever
+private static final ThreadLocal<User> currentUser = new ThreadLocal<>();
+// ... must call currentUser.remove() at the end of every request, or it leaks
+```
+
 ---
 
 ## Part 8: Collections Framework Deep Dive
@@ -795,6 +826,20 @@ public class BrokenAccountLookupService {
 }
 ```
 
+**Q: A circular dependency error appears after deployment — what causes it, and how do you fix it?**
+A: Bean A's constructor needs Bean B, and Bean B's constructor needs Bean A — Spring can't construct either first, and throws `BeanCurrentlyInCreationException` at startup (not a compile-time error, since the cycle is only visible once Spring tries to build the object graph). It's usually a sign two things are too tightly coupled and should be redesigned — extract the shared piece both depend on into a third bean, or invert one of the two dependencies. If a genuine, unavoidable cycle exists (rare, and usually still a design smell), `@Lazy` on one of the constructor parameters defers that dependency's actual resolution until it's first used instead of at construction time, breaking the deadlock.
+
+```java
+// circular — A needs B, B needs A, neither can be constructed first
+@Service class ServiceA { ServiceA(ServiceB b) {} }
+@Service class ServiceB { ServiceB(ServiceA a) {} }
+// -> BeanCurrentlyInCreationException: Error creating bean with name 'serviceA'
+
+// quick unblock — defers resolving ServiceA until first actual use, not at construction
+@Service class ServiceB { ServiceB(@Lazy ServiceA a) {} }
+// real fix: usually means A and B are too coupled — extract the shared logic into a ServiceC both depend on
+```
+
 ---
 
 ## Part 11: Spring Boot
@@ -854,6 +899,9 @@ java -jar app.jar --spring.profiles.active=prod
 
 **Q: What's Spring Batch, and why would a wealth/trading backend care?**
 A: Spring's framework for **batch processing**: reading large volumes of data, processing/transforming it, writing it out — with built-in chunking, retry, skip logic, and job restart. Think: end-of-day reconciliation jobs, overnight settlement processing, bulk pricing updates — exactly the kind of job a wealth/trading backend runs regularly (named directly in the JD). If you've written any Go batch/cron job that processes records in chunks with retry logic, that's the same shape of problem.
+
+**Q: Your Spring Boot application's startup time increased from 15 seconds to 2 minutes — how would you investigate?**
+A: Turn on startup timing first (`--debug`, or `spring.startup.enabled=true` + Actuator's `/actuator/startup` endpoint in newer Boot versions) — it breaks down exactly how long each auto-configuration and bean initialization step took, instead of guessing. Common real causes, roughly in order of likelihood: a new dependency pulled in heavyweight auto-configuration that didn't exist before (check what actually changed in `pom.xml` since it was fast); a bean doing real work in its constructor or an `@PostConstruct`/`@EventListener(ApplicationReadyEvent)` — a slow network call, a large file read, an eager cache warm — that used to be fast (dev DB) and is now slow (real network to prod DB/dependency); component-scanning a much larger package tree than needed; or Liquibase/Flyway running a large new migration on every boot. The fix follows directly from wherever the timing breakdown points — it's rarely "Spring itself got slow."
 
 ---
 
