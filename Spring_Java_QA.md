@@ -840,6 +840,27 @@ A: Bean A's constructor needs Bean B, and Bean B's constructor needs Bean A — 
 // real fix: usually means A and B are too coupled — extract the shared logic into a ServiceC both depend on
 ```
 
+**Q: `@Bean` vs. `@Component` — what's the actual difference, and why does `bank-demo` have zero `@Bean` methods?**
+A: Both register a bean with the container, but at different points of control. `@Component` (and its specializations `@Service`/`@Repository`/`@RestController`) goes *on the class itself* — you're annotating code you own, and Spring finds it via component-scanning. `@Bean` goes on a *method* inside an `@Configuration` class — you write the method body yourself, and whatever it returns becomes the bean. That extra level of control is exactly what `@Bean` is for, and neither reason to reach for it applies in this project: (1) wiring a **third-party class** you don't own and can't put an annotation on (an external SDK's client, a library's HTTP client builder) — every class in `bank-demo` (`AccountService`, `ConsoleNotificationService`, etc.) is the project's own code, so a stereotype annotation works directly; (2) a bean whose construction needs real **imperative logic** — conditional setup, values pulled from config, calling a builder with multiple steps — that a bare constructor can't express. Every bean here is a plain `new SomeClass(dependencies)` with nothing conditional about it, so there's nothing for a `@Bean` method to add.
+
+```java
+// @Component — goes on your own class, Spring finds it by scanning the package
+@Service
+public class AccountService { AccountService(AccountRepository repo) { ... } }
+
+// @Bean — goes on a method, for exactly the two cases above
+@Configuration
+public class ThirdPartyConfig {
+    @Bean
+    public S3Client s3Client(@Value("${aws.region}") String region) {
+        // S3Client is AWS SDK code — can't put @Component on a class you don't own
+        // and construction needs a builder + a config value, not a bare constructor
+        return S3Client.builder().region(Region.of(region)).build();
+    }
+}
+```
+If `bank-demo` ever called a real third-party payment gateway SDK, *that* client is where a `@Bean` method would first show up — worth saying out loud if asked, since it shows you know *when* to reach for it, not just what it does.
+
 ---
 
 ## Part 11: Spring Boot
