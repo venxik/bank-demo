@@ -9,7 +9,7 @@ Interview: 3 Aug 2026, 3:00pm SGT, Microsoft Teams
 ## The 9 Documents
 
 **1. [Master_Question_Checklist](Master_Question_Checklist.md)**
-Read this first. The highest-signal document — actual questions reported by real OCBC candidates, from two independent sources, with a pointer to exactly which other doc has the full answer for each one. Short, and the closest thing to "here's what's actually going to get asked."
+Read this first. The highest-signal document — actual questions reported by real OCBC candidates, from two independent sources, with the **full answer inline** for each one (not just a pointer) plus a "full depth" link for anyone who wants more. The closest thing to "here's what's actually going to get asked, and here's exactly what to say."
 
 **2. [Interview_Countdown_Plan](Interview_Countdown_Plan.md)**
 The schedule. A gap analysis checked against the JD, the exact blanks only you can fill, a calendarized day-by-day plan with two full 60-minute mock-interview runs, a timebox for a real 1-hour interview's minute allocation, a log of what's already been closed with real repo evidence (Swagger, Docker, CI, Redux, Liquibase), and a ranked list of what's most likely to go wrong. Tells you *when* to read everything else and *what's* still missing.
@@ -41,7 +41,7 @@ Not concepts — the actual `bank-demo` repo. Four views into the same code: a 1
 
 If you're working through these over multiple sessions rather than all at once:
 
-1. **[Doc 1](Master_Question_Checklist.md)** — 10 minutes, confirmed real questions, so everything after this lands with "oh, this is the thing that actually gets asked" context.
+1. **[Doc 1](Master_Question_Checklist.md)** — 20–25 minutes now that every answer is written out in full, not just pointed at; everything after this lands with "oh, this is the thing that actually gets asked" context.
 2. **[Doc 2](Interview_Countdown_Plan.md)** — the calendarized plan for everything below.
 3. **[Doc 3](Self_Intro_And_Behavioral.md)** — fill in the blanks (Java-experience anchor, the pricing-story framing decision, the gRPC-story outcome) before anything else; they take the longest to get right and nobody else can write them for you.
 4. **[Doc 4](Spring_Java_QA.md) and [Doc 5](ReactJS_QA.md)** — the core technical content, best absorbed by talking the answers out loud. Pair this session with **[Doc 9](Project_Code_Walkthrough.md)** — the guided tour through the actual code these two docs keep referencing.
