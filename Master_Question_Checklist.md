@@ -195,6 +195,14 @@ Full depth: `Spring_Java_QA.md` Part 8.
 
 ---
 
+## Re-Verification Pass (Aug 2026)
+
+Re-searched for OCBC interview questions to check this checklist against anything new. Result: **nothing in the 22 questions above changed or needs correction** — the design-pattern and two-Autowired-types questions specifically were re-confirmed as real via independent search snippets. Both primary sources (Nodeflair, Glassdoor) are still blocked to direct fetch (403, same as the original research pass — tried `WebFetch` and the Chrome extension again, both failed the same way), so this pass relied on search-result snippets rather than reading either site's full question list directly. That's a real limitation, not a clean re-verification — treat the 22 questions above as still the highest-confidence source, and treat this pass as "nothing contradicted, one useful new thing found" rather than "fully re-audited."
+
+The one genuinely new, useful thing this pass surfaced: current, verifiable "why OCBC specifically" material (Next Frontier strategy, OCBC WoW conversational AI in wealth management) — now in `Self_Intro_And_Behavioral.md` §7, since a "why this bank, not just any bank" question is flagged (by eFinancialCareers' Singapore-bank interview coverage) as likely regardless of role. Worth re-verifying those specific facts are still current if there's a long gap before the actual interview date.
+
+---
+
 ## What This Means For Your Prep Priority
 
 Given both sources above are real, repeated, confirmed signal: the two-Autowired-types question, the Spring design-pattern question, Redis, SQL vs. NoSQL, "describe a microservice you built," algorithm design techniques, Java basics from scratch, Hashtable vs. HashMap, and designing a HashMap are near-certain to come up in some form — and you now have the full answer for every one of them on this page, not just a pointer. Read this document start to finish as your final pass; use the "full depth" links only for the ones you want more than the cram version on.

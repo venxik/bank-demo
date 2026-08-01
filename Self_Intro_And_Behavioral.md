@@ -240,6 +240,17 @@ You don't need a separate story for every possible question — the same story c
 ### "Why are you interested in this role?"
 The honest and grounded version: the role is genuinely full-stack, matching your background; the domain is banking, playing directly to your CIMB Niaga/BI-FAST experience (including real, professional mobile-side Java on that integration — §5) even though the specific product surface (wealth/trading vs. payments) is new; and deep enterprise Java/J2EE specifically is a deliberate stretch you're taking on with your eyes open, which the interview itself is proof of, not a claim.
 
+### "Why OCBC specifically?" / a "digital transformation" question
+Per Singaporean-bank interview-prep coverage (eFinancialCareers), interviewers at DBS/OCBC/UOB routinely probe "why this bank, not just any bank" and some version of a "digital" question, regardless of role — worth having a bank-specific answer ready, not just a generic "why banking" one. Real, current, verifiable material to anchor it (researched Aug 2026, not in this project's earlier prep):
+- OCBC announced a **"Next Frontier" strategy** (Feb 2026) putting AI, digital, and data at the center of its next growth phase — redesigning customer-centric processes, strengthening enterprise data use, building new digital capabilities group-wide.
+- The Group is investing **over SGD 1 billion annually in technology** going forward, a step up from prior spend.
+- Directly relevant to *this* role: **OCBC WoW** brings conversational AI into wealth management specifically — combining a customer's portfolio data with real-time market data and research through voice or text. This is the Group Wealth division's own AI initiative, not a generic bank-wide talking point.
+
+Frame: *"Beyond the technical fit, OCBC's Next Frontier push into AI/digital/data — and OCBC WoW specifically bringing that into wealth management — is exactly the kind of platform work I want to be part of. It's a real technology investment, not just messaging, and it's happening in the same division I'd be joining."* Verify these facts are still current closer to the interview date — a strategy name or product can shift between when this was researched and when you actually sit down.
+
+### "Are you open to relocation / regional mobility?"
+Same source flags this as a common Singapore-bank question independent of role — say yes/flexible if genuinely true, since banks weigh this in hiring decisions; don't over-promise if it isn't actually true for you.
+
 ### "Why are you leaving your current role?"
 Growth-framed only: grateful for the Laku6 experience, but want to deepen full-stack expertise, work on larger-scale systems in a regulated environment, build on the CIMB Niaga foundation rather than start over. Never mention salary or anything negative about Laku6.
 
