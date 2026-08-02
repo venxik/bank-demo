@@ -29,7 +29,7 @@ Full depth (11 patterns total, Spring usage + from-scratch code for each): `Spri
 Full depth: `Spring_Java_QA.md` Part 10.
 
 ### 4. "Why do we need to use Spring?"
-**A:** Inversion of Control — normally your code controls creating its own dependencies (`new SomeService(new SomeRepo())`); Spring inverts that, with a container (`ApplicationContext`) creating and wiring objects ("beans") for you based on annotations, and handing you the finished graph. The payoff: your code depends on interfaces/abstractions instead of concrete `new` calls scattered everywhere, which is what makes testing (swap in a mock) and swapping implementations (a different `NotificationService`) possible without touching the classes that use them.
+**A:** Two layers — most answers stop at the first one and sound thin. **IoC/DI**: without a container you're wiring every object graph by hand (`new AccountService(new AccountRepository(), new EmailNotifier())`), every dependency hardcoded, swapping an implementation or mocking one for a test means touching every construction site. Spring's container builds and wires that graph for you from annotations instead. **Beyond DI — the part that actually answers "why Spring" and not just "why DI"**: Spring is a coherent, battle-tested answer to nearly everything else a backend needs, so you're not gluing together separate libraries yourself — Spring MVC (REST/web layer), Spring Data (a repository interface becomes a working implementation), declarative transactions via AOP (`@Transactional`), Spring Security, and Spring Boot's auto-configuration + embedded server (`java -jar`, no XML, no separate Tomcat) plus Actuator (health/metrics endpoints for free). `bank-demo` itself is the proof: REST API + JPA persistence + declarative transactions + validation + centralized exception handling + auto-generated OpenAPI docs, wired with a handful of annotations. The real alternative to "use Spring" isn't "no framework" — it's assembling that same list of concerns from separate, less-integrated pieces by hand.
 
 Full depth: `Spring_Java_QA.md` Part 10.
 
@@ -200,6 +200,25 @@ Full depth: `Spring_Java_QA.md` Part 8.
 Re-searched for OCBC interview questions to check this checklist against anything new. Result: **nothing in the 22 questions above changed or needs correction** — the design-pattern and two-Autowired-types questions specifically were re-confirmed as real via independent search snippets. Both primary sources (Nodeflair, Glassdoor) are still blocked to direct fetch (403, same as the original research pass — tried `WebFetch` and the Chrome extension again, both failed the same way), so this pass relied on search-result snippets rather than reading either site's full question list directly. That's a real limitation, not a clean re-verification — treat the 22 questions above as still the highest-confidence source, and treat this pass as "nothing contradicted, one useful new thing found" rather than "fully re-audited."
 
 The one genuinely new, useful thing this pass surfaced: current, verifiable "why OCBC specifically" material (Next Frontier strategy, OCBC WoW conversational AI in wealth management) — now in `Self_Intro_And_Behavioral.md` §7, since a "why this bank, not just any bank" question is flagged (by eFinancialCareers' Singapore-bank interview coverage) as likely regardless of role. Worth re-verifying those specific facts are still current if there's a long gap before the actual interview date.
+
+---
+
+## Second Re-Verification Pass (2 Aug 2026, day before the interview)
+
+Re-checked independently, with two results:
+
+**Strengthened confirmation**: questions #11 and #12 are confirmed via direct search snippet, not just inference — both from a **Java Developer** report dated **Jul 1, 2024**: *"What is the difference between String and StringBuffer in Java?"* and *"Can you explain a design pattern and its importance in software development?"* Same source, same day, which suggests one candidate's full interview writeup — good corroborating signal.
+
+**One new, low-confidence data point**: a separate Jun 2, 2024 report (Software Engineer role) mentions *"Did you have to complete a competitive programming and logical test?"* Not previously captured. Weighted low-confidence and most likely describes an earlier online-assessment stage in the pipeline rather than the technical interview round itself — every other confirmed report, including the pattern this checklist is built on, describes the technical round as conversational and concept-level, not a live coding test. Worth being aware it exists as a single data point, not worth re-prioritizing prep around.
+
+**The "why OCBC" material needed an update, not a correction** — it was accurate when written but has since been overtaken by fast-moving news, which is exactly the risk that section flagged. Current state as of today:
+- OCBC's **Next Frontier** strategy (unveiled Feb 2026 by new Group CEO Tan Teck Long, in role since Jan 1, 2026) is built around "**ADD**" — AI, Digital, Data. Notably, Data sits at the foundation of the strategy, not AI, despite AI being first in the acronym — a nuance worth having if asked to elaborate rather than name-drop.
+- **Wealth management was chosen as the first business** to receive the ADD strategy — directly the division this role sits in, which is a genuinely strong, specific "why this role, why now" angle rather than a generic one.
+- **HELIOS** (Holistic wEalth Lifecycle Insights & Ongoing Surveillance) — an agentic AI platform automating KYC/customer due diligence for wealth onboarding — launched **29 July 2026**, four days before this interview. Fresh enough that mentioning it signals real, current research rather than a generic "I looked at your website" answer.
+- **OCBC WoW** — an AI-native banking app launched July 2026, described as the region's first with "two avatars" offering real-time, hyper-personalised wealth management service.
+- OCBC has committed **over $1 billion per year for three years** to this strategy.
+
+This connects authentically to the "breadth… increasingly building with AI-native tooling (Anthropic API, agentic workflows)" point already in your self-intro — worth drawing that line explicitly if a "why this role" question comes up, since it's a real, non-generic connection rather than a stretch.
 
 ---
 
