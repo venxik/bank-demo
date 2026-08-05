@@ -924,6 +924,17 @@ java -jar app.jar --spring.profiles.active=prod
 **Q: What's Spring Batch, and why would a wealth/trading backend care?**
 A: Spring's framework for **batch processing**: reading large volumes of data, processing/transforming it, writing it out — with built-in chunking, retry, skip logic, and job restart. Think: end-of-day reconciliation jobs, overnight settlement processing, bulk pricing updates — exactly the kind of job a wealth/trading backend runs regularly (named directly in the JD). If you've written any Go batch/cron job that processes records in chunks with retry logic, that's the same shape of problem.
 
+**Q: Your scheduled job executes multiple times after deploying multiple instances — why?**
+A: `@Scheduled` runs independently on every instance that has the bean — Spring has no built-in awareness that four instances of the same service are all running the same JVM-local cron, so a job meant to run "once per interval" ends up running once *per instance*, every interval. Invisible with one instance; appears the moment you scale out. Fix: a distributed lock so only one instance's execution actually proceeds per scheduled firing — either a library built for exactly this (ShedLock, wrapping the method and backing the lock with a shared DB table or Redis), or hand-rolled via a DB row with `SELECT ... FOR UPDATE`/a unique constraint that only one instance can successfully claim per interval.
+
+```java
+@Scheduled(cron = "0 0 * * * *")
+@SchedulerLock(name = "reconcileDailyBalances", lockAtLeastFor = "5m", lockAtMostFor = "30m")
+void reconcileDailyBalances() {
+    // ShedLock ensures only ONE instance actually runs this per scheduled firing, others skip it
+}
+```
+
 **Q: Your Spring Boot application's startup time increased from 15 seconds to 2 minutes — how would you investigate?**
 A: Turn on startup timing first (`--debug`, or `spring.startup.enabled=true` + Actuator's `/actuator/startup` endpoint in newer Boot versions) — it breaks down exactly how long each auto-configuration and bean initialization step took, instead of guessing. Common real causes, roughly in order of likelihood: a new dependency pulled in heavyweight auto-configuration that didn't exist before (check what actually changed in `pom.xml` since it was fast); a bean doing real work in its constructor or an `@PostConstruct`/`@EventListener(ApplicationReadyEvent)` — a slow network call, a large file read, an eager cache warm — that used to be fast (dev DB) and is now slow (real network to prod DB/dependency); component-scanning a much larger package tree than needed; or Liquibase/Flyway running a large new migration on every boot. The fix follows directly from wherever the timing breakdown points — it's rarely "Spring itself got slow."
 
@@ -1030,6 +1041,9 @@ public TransferResponse transfer(@PathVariable Long id, @Valid @RequestBody Tran
     // invalid amount never reaches this line — Spring throws before the method body runs
 }
 ```
+
+**Q: A Spring Boot service starts returning random 500 errors — where do you begin?**
+A: "Random" (not consistently reproducible on a given input) points away from a plain logic bug and toward something environmental or a race condition — that distinction shapes where you look next. Start with the actual stack trace in logs: a 500 with no caught, specific exception type means it fell through to the catch-all handler (the `Exception.class -> 500` branch in `GlobalExceptionHandler`), so the real cause is whichever exception is in that log line, not "500" itself. Common actual causes behind *random* 500s, roughly in order of likelihood: a connection pool exhausted under concurrent load (intermittent, load-dependent); a downstream dependency timing out occasionally, not always; an `OptimisticLockingFailureException` under concurrent writes to the same row (also intermittent by nature — Part 13 below); or a null value that only appears for certain rows (a field nullable in the DB that the code assumed was always populated). A bug that fails 100% of the time on a specific input is a logic bug to fix directly; one that fails occasionally under load is almost always concurrency or a flaky dependency, and the fix looks completely different.
 
 ---
 
